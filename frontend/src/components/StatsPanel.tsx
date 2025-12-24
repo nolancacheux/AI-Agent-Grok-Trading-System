@@ -7,135 +7,85 @@ interface StatsPanelProps {
   stats: DailyStats;
 }
 
-function StatItem({
-  label,
-  value,
-  subValue,
-  valueColor = 'text-white',
-}: {
-  label: string;
-  value: string | number;
-  subValue?: string;
-  valueColor?: string;
-}) {
-  return (
-    <div className="py-3 border-b border-terminal-border/50 last:border-b-0">
-      <div className="text-xs text-terminal-text uppercase tracking-wider mb-1">
-        {label}
-      </div>
-      <div className={`text-lg font-bold ${valueColor}`}>{value}</div>
-      {subValue && (
-        <div className="text-xs text-terminal-text mt-0.5">{subValue}</div>
-      )}
-    </div>
-  );
-}
-
-function WinRateBar({ rate }: { rate: number }) {
-  return (
-    <div className="py-3 border-b border-terminal-border/50">
-      <div className="flex justify-between items-center mb-2">
-        <span className="text-xs text-terminal-text uppercase tracking-wider">
-          Win Rate
-        </span>
-        <span
-          className={`text-lg font-bold ${
-            rate >= 60 ? 'text-neon-green' : rate >= 40 ? 'text-amber-400' : 'text-neon-red'
-          }`}
-        >
-          {rate.toFixed(1)}%
-        </span>
-      </div>
-      <div className="h-2 bg-terminal-gray rounded overflow-hidden flex">
-        <div
-          className="h-full bg-neon-green transition-all duration-500"
-          style={{ width: `${rate}%` }}
-        />
-        <div
-          className="h-full bg-neon-red transition-all duration-500"
-          style={{ width: `${100 - rate}%` }}
-        />
-      </div>
-      <div className="flex justify-between text-xs mt-1">
-        <span className="text-neon-green">W</span>
-        <span className="text-neon-red">L</span>
-      </div>
-    </div>
-  );
-}
-
 export function StatsPanel({ stats }: StatsPanelProps) {
+  const winRateColor =
+    stats.winRate >= 60 ? 'text-accent-green' :
+    stats.winRate >= 40 ? 'text-accent-yellow' : 'text-accent-red';
+
   return (
-    <div className="terminal-panel p-4 h-full">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-4">
-        <span className="text-neon-green text-lg font-mono">&gt;&gt;</span>
-        <h2 className="text-sm font-medium text-terminal-text uppercase tracking-widest">
-          Today&apos;s Stats
-        </h2>
-      </div>
+    <div className="card">
+      <div className="card-header">Today&apos;s Statistics</div>
 
-      {/* Stats List */}
-      <div className="space-y-0">
-        <StatItem
-          label="Total Trades"
-          value={stats.totalTrades}
-          subValue={`${stats.winningTrades}W / ${stats.losingTrades}L`}
-          valueColor="text-white"
-        />
-
-        <WinRateBar rate={stats.winRate} />
-
-        <StatItem
-          label="Avg Trade Duration"
-          value={stats.avgTradeDuration}
-          valueColor="text-cyan-400"
-        />
-
-        {stats.bestStock && (
-          <div className="py-3 border-b border-terminal-border/50">
-            <div className="text-xs text-terminal-text uppercase tracking-wider mb-1">
-              Best Performer
+      <div className="card-body space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="metric-card">
+            <div className="metric-label">Total Trades</div>
+            <div className="metric-value text-lg">{stats.totalTrades}</div>
+            <div className="text-xs text-text-muted mt-1">
+              {stats.winningTrades}W / {stats.losingTrades}L
             </div>
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-white">
-                {stats.bestStock.symbol}
-              </span>
-              <span className="text-neon-green font-medium">
+          </div>
+          <div className="metric-card">
+            <div className="metric-label">Win Rate</div>
+            <div className={`metric-value text-lg ${winRateColor}`}>
+              {stats.winRate.toFixed(1)}%
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div className="flex justify-between text-xs mb-1">
+            <span className="text-accent-green">Wins</span>
+            <span className="text-accent-red">Losses</span>
+          </div>
+          <div className="h-2 bg-bg-tertiary rounded-full overflow-hidden flex">
+            <div
+              className="h-full bg-accent-green transition-all duration-500"
+              style={{ width: `${stats.winRate}%` }}
+            />
+            <div
+              className="h-full bg-accent-red transition-all duration-500"
+              style={{ width: `${100 - stats.winRate}%` }}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-3 pt-2">
+          <div className="flex items-center justify-between py-2 border-b border-border-secondary">
+            <span className="text-sm text-text-muted">Avg Trade Duration</span>
+            <span className="text-sm font-mono">{stats.avgTradeDuration}</span>
+          </div>
+
+          {stats.bestStock && (
+            <div className="flex items-center justify-between py-2 border-b border-border-secondary">
+              <div>
+                <span className="text-sm text-text-muted">Best Performer</span>
+                <div className="font-semibold">{stats.bestStock.symbol}</div>
+              </div>
+              <span className="text-accent-green font-mono">
                 +{formatCurrency(stats.bestStock.pnl)}
               </span>
             </div>
-          </div>
-        )}
+          )}
 
-        {stats.worstStock && (
-          <div className="py-3 border-b border-terminal-border/50">
-            <div className="text-xs text-terminal-text uppercase tracking-wider mb-1">
-              Worst Performer
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-white">
-                {stats.worstStock.symbol}
-              </span>
-              <span className="text-neon-red font-medium">
+          {stats.worstStock && (
+            <div className="flex items-center justify-between py-2 border-b border-border-secondary">
+              <div>
+                <span className="text-sm text-text-muted">Worst Performer</span>
+                <div className="font-semibold">{stats.worstStock.symbol}</div>
+              </div>
+              <span className="text-accent-red font-mono">
                 {formatCurrency(stats.worstStock.pnl)}
               </span>
             </div>
+          )}
+
+          <div className="flex items-center justify-between py-2">
+            <span className="text-sm text-text-muted">Total Fees</span>
+            <span className="text-sm font-mono text-accent-yellow">
+              {formatCurrency(stats.totalFees)}
+            </span>
           </div>
-        )}
-
-        <StatItem
-          label="Total Fees Paid"
-          value={formatCurrency(stats.totalFees)}
-          valueColor="text-amber-400"
-        />
-      </div>
-
-      {/* Footer */}
-      <div className="mt-6 pt-4 border-t border-terminal-border">
-        <div className="text-xs text-terminal-text text-center">
-          <span className="text-neon-green">GROK</span> is analyzing markets
-          <span className="animate-blink ml-1">_</span>
         </div>
       </div>
     </div>

@@ -38,8 +38,8 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
   const isProfit = data.pnl >= 0;
 
   return (
-    <div className="terminal-panel p-3 border border-neon-green/30 bg-terminal-black/95 backdrop-blur-sm">
-      <div className="text-xs text-terminal-text mb-2">
+    <div className="bg-bg-secondary border border-border-primary rounded-lg p-3 shadow-lg">
+      <div className="text-xs text-text-muted mb-2">
         {new Date(data.timestamp).toLocaleString('en-US', {
           month: 'short',
           day: 'numeric',
@@ -50,18 +50,20 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
       </div>
       <div className="space-y-1">
         <div className="flex justify-between gap-6">
-          <span className="text-terminal-text">Value:</span>
-          <span className="text-white font-medium">{formatCurrency(data.totalValue)}</span>
+          <span className="text-text-muted text-sm">Value:</span>
+          <span className="text-text-primary font-medium font-mono">
+            {formatCurrency(data.totalValue)}
+          </span>
         </div>
         <div className="flex justify-between gap-6">
-          <span className="text-terminal-text">P&L:</span>
-          <span className={isProfit ? 'text-neon-green' : 'text-neon-red'}>
+          <span className="text-text-muted text-sm">P&L:</span>
+          <span className={`font-mono ${isProfit ? 'text-accent-green' : 'text-accent-red'}`}>
             {formatCurrency(data.pnl)} ({data.pnlPercent.toFixed(2)}%)
           </span>
         </div>
         <div className="flex justify-between gap-6">
-          <span className="text-terminal-text">Cash:</span>
-          <span className="text-white">{formatCurrency(data.cash)}</span>
+          <span className="text-text-muted text-sm">Cash:</span>
+          <span className="text-text-primary font-mono">{formatCurrency(data.cash)}</span>
         </div>
       </div>
     </div>
@@ -97,26 +99,19 @@ export function PerformanceChart({ data, initialValue }: PerformanceChartProps) 
   const gradientId = 'performanceGradient';
 
   return (
-    <div className="terminal-panel p-4 h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <span className="text-neon-green text-lg font-mono">&gt;&gt;</span>
-          <h2 className="text-sm font-medium text-terminal-text uppercase tracking-widest">
-            Real-Time Performance
-          </h2>
-        </div>
+    <div className="card h-full">
+      <div className="card-header flex items-center justify-between">
+        <span>Portfolio Performance</span>
 
-        {/* Time Range Selector */}
         <div className="flex gap-1">
           {TIME_RANGES.map((range) => (
             <button
               key={range.value}
               onClick={() => setSelectedRange(range.value)}
-              className={`px-3 py-1 text-xs font-mono transition-all duration-200 border ${
+              className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
                 selectedRange === range.value
-                  ? 'bg-neon-green/20 border-neon-green text-neon-green'
-                  : 'border-terminal-border text-terminal-text hover:border-neon-green/50 hover:text-neon-green/80'
+                  ? 'bg-accent-blue text-white'
+                  : 'text-text-muted hover:text-text-primary hover:bg-bg-tertiary'
               }`}
             >
               {range.label}
@@ -125,116 +120,104 @@ export function PerformanceChart({ data, initialValue }: PerformanceChartProps) 
         </div>
       </div>
 
-      {/* Chart */}
-      <div className="h-[300px] relative">
-        {/* Grid overlay */}
-        <div
-          className="absolute inset-0 pointer-events-none opacity-20"
-          style={{
-            backgroundImage: `
-              linear-gradient(#00ff0010 1px, transparent 1px),
-              linear-gradient(90deg, #00ff0010 1px, transparent 1px)
-            `,
-            backgroundSize: '40px 40px',
-          }}
-        />
+      <div className="p-4">
+        <div className="h-[300px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart
+              data={filteredData}
+              margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+            >
+              <defs>
+                <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                  <stop
+                    offset="0%"
+                    stopColor={isOverallProfit ? '#3fb950' : '#f85149'}
+                    stopOpacity={0.2}
+                  />
+                  <stop
+                    offset="100%"
+                    stopColor={isOverallProfit ? '#3fb950' : '#f85149'}
+                    stopOpacity={0.02}
+                  />
+                </linearGradient>
+              </defs>
 
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart
-            data={filteredData}
-            margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-          >
-            <defs>
-              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                <stop
-                  offset="0%"
-                  stopColor={isOverallProfit ? '#00ff00' : '#ff3333'}
-                  stopOpacity={0.3}
-                />
-                <stop
-                  offset="100%"
-                  stopColor={isOverallProfit ? '#00ff00' : '#ff3333'}
-                  stopOpacity={0.02}
-                />
-              </linearGradient>
-            </defs>
+              <XAxis
+                dataKey="timestamp"
+                axisLine={{ stroke: '#30363d' }}
+                tickLine={{ stroke: '#30363d' }}
+                tick={{ fill: '#6e7681', fontSize: 11 }}
+                tickFormatter={(value: string) => {
+                  const date = new Date(value);
+                  return selectedRange === '1H'
+                    ? date.toLocaleTimeString('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false,
+                      })
+                    : date.toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                      });
+                }}
+                interval="preserveStartEnd"
+                minTickGap={50}
+              />
 
-            <XAxis
-              dataKey="timestamp"
-              axisLine={{ stroke: '#222' }}
-              tickLine={{ stroke: '#222' }}
-              tick={{ fill: '#666', fontSize: 10 }}
-              tickFormatter={(value: string) => {
-                const date = new Date(value);
-                return selectedRange === '1H'
-                  ? date.toLocaleTimeString('en-US', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      hour12: false,
-                    })
-                  : date.toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                    });
-              }}
-              interval="preserveStartEnd"
-              minTickGap={50}
-            />
+              <YAxis
+                domain={[minValue, maxValue]}
+                axisLine={{ stroke: '#30363d' }}
+                tickLine={{ stroke: '#30363d' }}
+                tick={{ fill: '#6e7681', fontSize: 11 }}
+                tickFormatter={(value: number) => `$${(value / 1000).toFixed(0)}k`}
+                width={55}
+              />
 
-            <YAxis
-              domain={[minValue, maxValue]}
-              axisLine={{ stroke: '#222' }}
-              tickLine={{ stroke: '#222' }}
-              tick={{ fill: '#666', fontSize: 10 }}
-              tickFormatter={(value: number) => `$${value}`}
-              width={60}
-            />
+              <Tooltip content={<CustomTooltip />} />
 
-            <Tooltip content={<CustomTooltip />} />
+              <ReferenceLine
+                y={initialValue}
+                stroke="#30363d"
+                strokeDasharray="4 4"
+                label={{
+                  value: 'Initial',
+                  fill: '#6e7681',
+                  fontSize: 10,
+                  position: 'right',
+                }}
+              />
 
-            <ReferenceLine
-              y={initialValue}
-              stroke="#00ff0040"
-              strokeDasharray="5 5"
-              label={{
-                value: 'Initial',
-                fill: '#666',
-                fontSize: 10,
-                position: 'right',
-              }}
-            />
-
-            <Area
-              type="monotone"
-              dataKey="totalValue"
-              stroke={isOverallProfit ? '#00ff00' : '#ff3333'}
-              strokeWidth={2}
-              fill={`url(#${gradientId})`}
-              dot={false}
-              activeDot={{
-                r: 4,
-                fill: isOverallProfit ? '#00ff00' : '#ff3333',
-                stroke: '#0a0a0a',
-                strokeWidth: 2,
-              }}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* Chart Footer Stats */}
-      <div className="flex justify-between mt-4 pt-4 border-t border-terminal-border">
-        <div className="text-xs">
-          <span className="text-terminal-text">High: </span>
-          <span className="text-white">{formatCurrency(maxValue)}</span>
+              <Area
+                type="monotone"
+                dataKey="totalValue"
+                stroke={isOverallProfit ? '#3fb950' : '#f85149'}
+                strokeWidth={2}
+                fill={`url(#${gradientId})`}
+                dot={false}
+                activeDot={{
+                  r: 4,
+                  fill: isOverallProfit ? '#3fb950' : '#f85149',
+                  stroke: '#0d1117',
+                  strokeWidth: 2,
+                }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
-        <div className="text-xs">
-          <span className="text-terminal-text">Low: </span>
-          <span className="text-white">{formatCurrency(minValue)}</span>
-        </div>
-        <div className="text-xs">
-          <span className="text-terminal-text">Points: </span>
-          <span className="text-neon-green">{filteredData.length}</span>
+
+        <div className="flex justify-between mt-4 pt-4 border-t border-border-secondary text-xs">
+          <div>
+            <span className="text-text-muted">High: </span>
+            <span className="text-text-primary font-mono">{formatCurrency(maxValue)}</span>
+          </div>
+          <div>
+            <span className="text-text-muted">Low: </span>
+            <span className="text-text-primary font-mono">{formatCurrency(minValue)}</span>
+          </div>
+          <div>
+            <span className="text-text-muted">Data Points: </span>
+            <span className="text-text-secondary font-mono">{filteredData.length}</span>
+          </div>
         </div>
       </div>
     </div>

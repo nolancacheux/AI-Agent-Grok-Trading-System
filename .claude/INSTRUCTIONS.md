@@ -2,11 +2,21 @@
 
 These instructions must be followed for all work in this repository.
 
+## CRITICAL: NO AI MENTIONS
+
+**ABSOLUTELY NEVER mention Claude, AI, or any AI-related terms in:**
+- Git commits (no "Generated with Claude Code", no "Co-Authored-By: Claude", etc.)
+- Code comments
+- Documentation
+- Pull request descriptions
+- Any file that will be committed
+
+This is NON-NEGOTIABLE. Treat every commit as if this repo is already public. Violations of this rule are unacceptable.
+
 ## General Rules
 
 - Never use emojis in code, commits, or documentation
 - Communicate in English in code comments
-- Never mention "Claude", "AI assistant", or similar in commits or code comments
 - Focus commits on actual code/feature changes only
 - Keep code clean, simple, and well-documented
 - Never use ugly separator lines like `# ====...` or `// ----...` in code or config files

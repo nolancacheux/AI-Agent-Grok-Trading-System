@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { formatCurrency, formatPercent } from '@/data/mockData';
 import type { AgentStatus, MarketStatus } from '@/types';
+import { formatCurrency } from '@/data/mockData';
 
 interface HeaderProps {
   totalValue: number;
@@ -11,60 +11,52 @@ interface HeaderProps {
   agentStatus: AgentStatus;
 }
 
+function getMarketStatus(): { status: MarketStatus; nextChange: string } {
+  const now = new Date();
+  const nyTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  const hours = nyTime.getHours();
+  const minutes = nyTime.getMinutes();
+  const day = nyTime.getDay();
+  const time = hours * 60 + minutes;
+
+  const marketOpen = 9 * 60 + 30;
+  const marketClose = 16 * 60;
+  const preMarketOpen = 4 * 60;
+  const afterHoursClose = 20 * 60;
+
+  if (day === 0 || day === 6) {
+    return { status: 'CLOSED', nextChange: 'Opens Monday 9:30 AM ET' };
+  }
+
+  if (time >= marketOpen && time < marketClose) {
+    const remaining = marketClose - time;
+    const h = Math.floor(remaining / 60);
+    const m = remaining % 60;
+    return { status: 'OPEN', nextChange: `Closes in ${h}h ${m}m` };
+  }
+
+  if (time >= preMarketOpen && time < marketOpen) {
+    const remaining = marketOpen - time;
+    const h = Math.floor(remaining / 60);
+    const m = remaining % 60;
+    return { status: 'PRE_MARKET', nextChange: `Opens in ${h}h ${m}m` };
+  }
+
+  if (time >= marketClose && time < afterHoursClose) {
+    return { status: 'AFTER_HOURS', nextChange: 'Closes 8:00 PM ET' };
+  }
+
+  return { status: 'CLOSED', nextChange: 'Opens 9:30 AM ET' };
+}
+
 export function Header({ totalValue, pnl, pnlPercent, agentStatus }: HeaderProps) {
-  const [parisTime, setParisTime] = useState<string>('');
-  const [nyTime, setNyTime] = useState<string>('');
-  const [marketStatus, setMarketStatus] = useState<MarketStatus>('CLOSED');
+  const [marketInfo, setMarketInfo] = useState(getMarketStatus());
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
     const updateTimes = () => {
-      const now = new Date();
-
-      // Paris time
-      const paris = now.toLocaleTimeString('en-US', {
-        timeZone: 'Europe/Paris',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false,
-      });
-      setParisTime(paris);
-
-      // New York time
-      const ny = now.toLocaleTimeString('en-US', {
-        timeZone: 'America/New_York',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false,
-      });
-      setNyTime(ny);
-
-      // Market status (US market: 9:30-16:00 ET)
-      const nyHour = parseInt(
-        now.toLocaleTimeString('en-US', {
-          timeZone: 'America/New_York',
-          hour: '2-digit',
-          hour12: false,
-        })
-      );
-      const nyMinute = parseInt(
-        now.toLocaleTimeString('en-US', {
-          timeZone: 'America/New_York',
-          minute: '2-digit',
-        })
-      );
-      const totalMinutes = nyHour * 60 + nyMinute;
-
-      if (totalMinutes >= 570 && totalMinutes < 960) {
-        setMarketStatus('OPEN');
-      } else if (totalMinutes >= 240 && totalMinutes < 570) {
-        setMarketStatus('PRE_MARKET');
-      } else if (totalMinutes >= 960 && totalMinutes < 1200) {
-        setMarketStatus('AFTER_HOURS');
-      } else {
-        setMarketStatus('CLOSED');
-      }
+      setMarketInfo(getMarketStatus());
+      setCurrentTime(new Date());
     };
 
     updateTimes();
@@ -73,109 +65,78 @@ export function Header({ totalValue, pnl, pnlPercent, agentStatus }: HeaderProps
   }, []);
 
   const isProfit = pnl >= 0;
-  const statusColors: Record<AgentStatus, string> = {
-    IDLE: 'text-amber-400',
-    ANALYZING: 'text-cyan-400',
-    TRADING: 'text-neon-green',
-    ERROR: 'text-red-400',
+
+  const statusConfig: Record<AgentStatus, { label: string; className: string }> = {
+    IDLE: { label: 'Idle', className: 'badge-yellow' },
+    ANALYZING: { label: 'Analyzing', className: 'badge-blue' },
+    TRADING: { label: 'Trading', className: 'badge-green' },
+    ERROR: { label: 'Error', className: 'badge-red' },
   };
 
-  const marketStatusColors: Record<MarketStatus, string> = {
-    OPEN: 'text-neon-green',
-    CLOSED: 'text-neon-red',
-    PRE_MARKET: 'text-amber-400',
-    AFTER_HOURS: 'text-amber-400',
+  const marketStatusConfig: Record<MarketStatus, { label: string; className: string }> = {
+    OPEN: { label: 'Market Open', className: 'badge-green' },
+    CLOSED: { label: 'Market Closed', className: 'badge-gray' },
+    PRE_MARKET: { label: 'Pre-Market', className: 'badge-yellow' },
+    AFTER_HOURS: { label: 'After Hours', className: 'badge-yellow' },
   };
+
+  const nyTimeStr = currentTime.toLocaleString('en-US', {
+    timeZone: 'America/New_York',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
 
   return (
-    <header className="terminal-panel p-4 mb-4">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        {/* Title & Logo */}
-        <div className="flex items-center gap-4">
-          <div className="relative">
-            <h1 className="font-display text-2xl md:text-3xl font-bold tracking-wider text-neon-green text-glow-green">
-              GROK TRADING BOT
-            </h1>
-            <div className="absolute -bottom-1 left-0 right-0 h-px bg-gradient-to-r from-neon-green via-neon-green/50 to-transparent" />
+    <header className="card">
+      <div className="p-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div className="flex items-center gap-6">
+          <div>
+            <h1 className="text-lg font-semibold text-text-primary">Trading Dashboard</h1>
+            <p className="text-xs text-text-muted mt-0.5">Automated Trading System</p>
           </div>
 
-          {/* Agent Status */}
-          <div className="flex items-center gap-2 px-3 py-1 border border-terminal-border rounded bg-terminal-dark">
-            <span
-              className={`status-dot ${
-                agentStatus === 'TRADING'
-                  ? 'active'
-                  : agentStatus === 'ANALYZING'
-                  ? 'idle'
-                  : ''
-              }`}
-              style={{
-                backgroundColor:
-                  agentStatus === 'IDLE'
-                    ? '#888'
-                    : agentStatus === 'ANALYZING'
-                    ? '#00ffff'
-                    : '#00ff00',
-              }}
-            />
-            <span className={`text-xs font-medium ${statusColors[agentStatus]}`}>
-              {agentStatus}
+          <div className="hidden sm:flex items-center gap-2">
+            <span className={`badge ${statusConfig[agentStatus].className}`}>
+              {agentStatus === 'ANALYZING' && (
+                <span className="w-1.5 h-1.5 bg-current rounded-full animate-pulse mr-1.5" />
+              )}
+              {statusConfig[agentStatus].label}
+            </span>
+            <span className={`badge ${marketStatusConfig[marketInfo.status].className}`}>
+              {marketStatusConfig[marketInfo.status].label}
             </span>
           </div>
         </div>
 
-        {/* Portfolio Value */}
-        <div className="flex items-center gap-8">
-          <div className="text-center">
-            <div className="text-xs text-terminal-text uppercase tracking-widest mb-1">
-              Total Value
-            </div>
-            <div className="font-display text-3xl md:text-4xl font-bold text-white">
+        <div className="flex items-center gap-6">
+          <div className="header-stat">
+            <span className="header-stat-label">Portfolio Value</span>
+            <span className="header-stat-value font-mono text-lg">
               {formatCurrency(totalValue)}
-            </div>
-          </div>
-
-          {/* P&L */}
-          <div className="text-center">
-            <div className="text-xs text-terminal-text uppercase tracking-widest mb-1">
-              P&L
-            </div>
-            <div
-              className={`font-display text-2xl md:text-3xl font-bold ${
-                isProfit ? 'text-neon-green text-glow-green' : 'text-neon-red text-glow-red'
-              }`}
-            >
-              {formatCurrency(pnl)}
-              <span className="text-lg ml-2">({formatPercent(pnlPercent)})</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Time & Market Status */}
-        <div className="flex flex-col gap-2 text-right">
-          <div className="flex items-center gap-4 text-sm">
-            <div>
-              <span className="text-terminal-text">PARIS </span>
-              <span className="text-white font-mono">{parisTime || '--:--:--'}</span>
-            </div>
-            <div>
-              <span className="text-terminal-text">NY </span>
-              <span className="text-white font-mono">{nyTime || '--:--:--'}</span>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-end gap-2">
-            <span className="text-xs text-terminal-text">MARKET:</span>
-            <span
-              className={`text-sm font-bold ${marketStatusColors[marketStatus]} ${
-                marketStatus === 'OPEN' ? 'animate-pulse' : ''
-              }`}
-            >
-              {marketStatus.replace('_', ' ')}
             </span>
-            {marketStatus === 'OPEN' && (
-              <span className="text-xs text-terminal-text">(09:30-16:00 ET)</span>
-            )}
+          </div>
+
+          <div className="divider hidden sm:block" />
+
+          <div className="header-stat">
+            <span className="header-stat-label">P&L</span>
+            <div className="flex items-center gap-2">
+              <span className={`header-stat-value font-mono ${isProfit ? 'text-accent-green' : 'text-accent-red'}`}>
+                {isProfit ? '+' : ''}{formatCurrency(pnl)}
+              </span>
+              <span className={`text-xs font-mono ${isProfit ? 'text-accent-green' : 'text-accent-red'}`}>
+                ({isProfit ? '+' : ''}{pnlPercent.toFixed(2)}%)
+              </span>
+            </div>
+          </div>
+
+          <div className="divider hidden sm:block" />
+
+          <div className="header-stat hidden md:block">
+            <span className="header-stat-label">New York</span>
+            <span className="header-stat-value font-mono">{nyTimeStr}</span>
           </div>
         </div>
       </div>

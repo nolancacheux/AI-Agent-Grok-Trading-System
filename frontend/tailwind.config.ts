@@ -9,58 +9,44 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        terminal: {
-          black: '#0a0a0a',
-          darker: '#050505',
-          dark: '#111111',
-          gray: '#1a1a1a',
-          border: '#222222',
-          text: '#888888',
+        bg: {
+          primary: '#0d1117',
+          secondary: '#161b22',
+          tertiary: '#21262d',
         },
-        neon: {
-          green: '#00ff00',
-          greenDark: '#00cc00',
-          greenGlow: '#00ff0080',
-          red: '#ff3333',
-          redDark: '#cc0000',
-          redGlow: '#ff333380',
-          amber: '#ffaa00',
-          cyan: '#00ffff',
+        border: {
+          primary: '#30363d',
+          secondary: '#21262d',
+        },
+        text: {
+          primary: '#f0f6fc',
+          secondary: '#8b949e',
+          muted: '#6e7681',
+        },
+        accent: {
+          green: '#3fb950',
+          'green-muted': '#238636',
+          red: '#f85149',
+          'red-muted': '#da3633',
+          blue: '#58a6ff',
+          yellow: '#d29922',
+          orange: '#f0883e',
         },
       },
       fontFamily: {
-        mono: ['JetBrains Mono', 'Fira Code', 'Consolas', 'monospace'],
-        display: ['Orbitron', 'sans-serif'],
+        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        mono: ['JetBrains Mono', 'SF Mono', 'Consolas', 'monospace'],
       },
       animation: {
-        'pulse-glow': 'pulseGlow 2s ease-in-out infinite',
-        'scan-line': 'scanLine 8s linear infinite',
-        'blink': 'blink 1s step-end infinite',
-        'matrix-rain': 'matrixRain 20s linear infinite',
-        'flicker': 'flicker 0.15s infinite',
+        'pulse': 'pulse 2s ease-in-out infinite',
         'slide-up': 'slideUp 0.3s ease-out',
-        'fade-in': 'fadeIn 0.5s ease-out',
+        'fade-in': 'fadeIn 0.3s ease-out',
+        'shimmer': 'shimmer 1.5s infinite',
       },
       keyframes: {
-        pulseGlow: {
-          '0%, 100%': { boxShadow: '0 0 5px #00ff00, 0 0 10px #00ff0040' },
-          '50%': { boxShadow: '0 0 20px #00ff00, 0 0 30px #00ff0060' },
-        },
-        scanLine: {
-          '0%': { transform: 'translateY(-100%)' },
-          '100%': { transform: 'translateY(100vh)' },
-        },
-        blink: {
+        pulse: {
           '0%, 100%': { opacity: '1' },
-          '50%': { opacity: '0' },
-        },
-        matrixRain: {
-          '0%': { transform: 'translateY(-100%)' },
-          '100%': { transform: 'translateY(100%)' },
-        },
-        flicker: {
-          '0%, 100%': { opacity: '1' },
-          '50%': { opacity: '0.8' },
+          '50%': { opacity: '0.5' },
         },
         slideUp: {
           '0%': { transform: 'translateY(10px)', opacity: '0' },
@@ -70,15 +56,17 @@ const config: Config = {
           '0%': { opacity: '0' },
           '100%': { opacity: '1' },
         },
+        shimmer: {
+          '0%': { backgroundPosition: '-200% 0' },
+          '100%': { backgroundPosition: '200% 0' },
+        },
       },
-      backgroundImage: {
-        'grid-pattern': `linear-gradient(#00ff0008 1px, transparent 1px),
-                         linear-gradient(90deg, #00ff0008 1px, transparent 1px)`,
-        'scanline': 'linear-gradient(transparent 50%, rgba(0, 0, 0, 0.1) 50%)',
+      boxShadow: {
+        'card': '0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24)',
+        'card-hover': '0 4px 6px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.12)',
       },
-      backgroundSize: {
-        'grid': '50px 50px',
-        'scanline': '100% 4px',
+      borderRadius: {
+        'card': '6px',
       },
     },
   },
