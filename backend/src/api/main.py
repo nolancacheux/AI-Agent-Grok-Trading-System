@@ -6,7 +6,7 @@ import sys
 
 from src.config import get_settings
 from src.broker.ibkr_client import get_ibkr_client
-from src.api.routes import trading, portfolio, health
+from src.api.routes import trading, portfolio, health, agent
 
 
 # Configure logging
@@ -60,6 +60,7 @@ app.add_middleware(
 app.include_router(health.router, tags=["Health"])
 app.include_router(portfolio.router, prefix="/api", tags=["Portfolio"])
 app.include_router(trading.router, prefix="/api", tags=["Trading"])
+app.include_router(agent.router, prefix="/api", tags=["Agent"])
 
 
 @app.get("/")
