@@ -89,7 +89,8 @@ class AgentState(BaseModel):
     pnl: float = 0.0
     pnl_percent: float = 0.0
     positions: list[Position] = []
-    last_action: Optional[datetime] = None
+    last_action: Optional[str] = None
+    last_action_time: Optional[datetime] = None
     trades_today: int = 0
 
 

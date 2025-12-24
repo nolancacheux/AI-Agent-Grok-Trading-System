@@ -25,6 +25,8 @@ class TradingAgent:
         self._status = AgentStatus.IDLE
         self._trades: list[Trade] = []
         self._initial_value: Optional[float] = None
+        self._last_action: Optional[str] = None
+        self._last_action_time: Optional[datetime] = None
 
     @property
     def status(self) -> AgentStatus:
@@ -54,7 +56,8 @@ class TradingAgent:
                 pnl=pnl,
                 pnl_percent=pnl_percent,
                 positions=positions,
-                last_action=self._trades[-1].timestamp if self._trades else None,
+                last_action=self._last_action,
+                last_action_time=self._last_action_time,
                 trades_today=len([t for t in self._trades if t.timestamp.date() == datetime.now().date()])
             )
 
@@ -144,6 +147,8 @@ class TradingAgent:
             # Execute the decision
             if decision["action"] == "HOLD":
                 logger.info("Grok decided to HOLD - no action taken")
+                self._last_action = "HOLD - Market analysis complete, no trades recommended"
+                self._last_action_time = datetime.now()
                 self._status = AgentStatus.IDLE
                 return None
 
@@ -198,10 +203,14 @@ class TradingAgent:
                 evaluated_risk=50
             )
             self._trades.append(trade)
+            self._last_action = f"Closed {position.symbol}: {reason}"
+            self._last_action_time = result.timestamp
+            self._status = AgentStatus.IDLE
             logger.info(f"Closed position: {trade}")
             return trade
 
         logger.error(f"Failed to close position: {result.error}")
+        self._status = AgentStatus.IDLE
         return None
 
     async def _execute_decision(self, decision: dict, market_data: dict) -> Optional[Trade]:
@@ -256,6 +265,8 @@ class TradingAgent:
                 evaluated_risk=decision.get("risk_score", 50)
             )
             self._trades.append(trade)
+            self._last_action = f"{action.value.upper()} {result.quantity} {symbol} @ ${result.executed_price:.2f}"
+            self._last_action_time = result.timestamp
             logger.info(f"Trade executed: {trade}")
             self._status = AgentStatus.IDLE
             return trade

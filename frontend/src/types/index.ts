@@ -1,4 +1,4 @@
-export type AgentStatus = 'IDLE' | 'ANALYZING' | 'TRADING';
+export type AgentStatus = 'IDLE' | 'ANALYZING' | 'TRADING' | 'ERROR';
 export type TradeAction = 'buy' | 'sell' | 'close';
 export type MarketStatus = 'OPEN' | 'CLOSED' | 'PRE_MARKET' | 'AFTER_HOURS';
 

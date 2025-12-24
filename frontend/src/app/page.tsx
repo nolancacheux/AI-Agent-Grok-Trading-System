@@ -14,11 +14,80 @@ import {
   mockPortfolioHistory,
   mockDailyStats,
 } from '@/data/mockData';
+import { useAgentState, useTrades, useHealth, useTriggerAnalysis } from '@/hooks/useAgentState';
+import { executeTrade } from '@/lib/api';
+import type { AgentState, Trade, Position } from '@/types';
 
 export default function Dashboard() {
-  const handleClosePosition = (symbol: string) => {
-    console.log('Closing position:', symbol);
-    // In real app, this would call the API
+  const { data: health } = useHealth();
+  const { data: agentData, isLoading: agentLoading, error: agentError } = useAgentState();
+  const { data: tradesData } = useTrades();
+  const triggerAnalysis = useTriggerAnalysis();
+
+  const isConnected = health?.ibkr_connected ?? false;
+
+  // Transform API data to match component types or use mock data
+  const agentState: AgentState = agentData ? {
+    name: agentData.name,
+    status: agentData.status,
+    cash: agentData.cash,
+    initialValue: agentData.initial_value,
+    totalValue: agentData.total_value,
+    pnl: agentData.pnl,
+    pnlPercent: agentData.pnl_percent,
+    positions: agentData.positions.map(p => ({
+      symbol: p.symbol,
+      quantity: p.quantity,
+      avgPrice: p.avg_price,
+      currentPrice: p.current_price,
+      value: p.quantity * p.current_price,
+      pnl: (p.current_price - p.avg_price) * p.quantity,
+      pnlPercent: p.avg_price > 0 ? ((p.current_price - p.avg_price) / p.avg_price) * 100 : 0,
+    })),
+    holdings: agentData.positions.reduce((sum, p) => sum + p.quantity * p.current_price, 0),
+    chatHistory: [],
+    lastAction: agentData.last_action || '',
+    lastActionTime: agentData.last_action_time || '',
+  } : mockAgentState;
+
+  const trades: Trade[] = tradesData?.trades?.map(t => ({
+    id: t.id,
+    timestamp: t.timestamp,
+    action: t.action,
+    symbol: t.symbol,
+    quantity: t.quantity,
+    price: t.price,
+    totalValue: t.total_value,
+    fee: t.fee,
+    reasoning: t.reasoning,
+    evaluatedRisk: t.risk_score,
+    status: t.status || 'filled',
+  })) ?? mockRecentTrades;
+
+  const handleClosePosition = async (symbol: string) => {
+    if (!isConnected) {
+      console.log('Not connected to IBKR');
+      return;
+    }
+
+    try {
+      const result = await executeTrade({
+        symbol,
+        action: 'close',
+        quantity: 0, // Will be calculated by backend
+      });
+      console.log('Position closed:', result);
+    } catch (error) {
+      console.error('Failed to close position:', error);
+    }
+  };
+
+  const handleTriggerAnalysis = () => {
+    if (!isConnected) {
+      console.log('Not connected to IBKR');
+      return;
+    }
+    triggerAnalysis.mutate();
   };
 
   return (
@@ -39,12 +108,22 @@ export default function Dashboard() {
       />
 
       <div className="max-w-[1920px] mx-auto">
+        {/* Connection Status Banner */}
+        {!isConnected && (
+          <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+            <div className="flex items-center gap-2 text-amber-400 text-sm">
+              <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
+              <span>Backend offline - Using mock data</span>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <Header
-          totalValue={mockAgentState.totalValue}
-          pnl={mockAgentState.pnl}
-          pnlPercent={mockAgentState.pnlPercent}
-          agentStatus={mockAgentState.status}
+          totalValue={agentState.totalValue}
+          pnl={agentState.pnl}
+          pnlPercent={agentState.pnlPercent}
+          agentStatus={agentState.status}
         />
 
         {/* Main Grid Layout */}
@@ -54,12 +133,12 @@ export default function Dashboard() {
             {/* Performance Chart */}
             <PerformanceChart
               data={mockPortfolioHistory}
-              initialValue={mockAgentState.initialValue}
+              initialValue={agentState.initialValue}
             />
 
             {/* Positions Table */}
             <PositionsTable
-              positions={mockAgentState.positions}
+              positions={agentState.positions}
               onClosePosition={handleClosePosition}
             />
           </div>
@@ -68,8 +147,10 @@ export default function Dashboard() {
           <div className="lg:col-span-4 space-y-4">
             {/* Agent Status Card */}
             <AgentStatusCard
-              agent={mockAgentState}
-              lastTrade={mockRecentTrades[0]}
+              agent={agentState}
+              lastTrade={trades[0]}
+              onTriggerAnalysis={isConnected ? handleTriggerAnalysis : undefined}
+              isAnalyzing={triggerAnalysis.isPending}
             />
 
             {/* Stats Panel */}
@@ -78,7 +159,7 @@ export default function Dashboard() {
 
           {/* Full Width - Activity Log */}
           <div className="lg:col-span-12">
-            <ActivityLog trades={mockRecentTrades} />
+            <ActivityLog trades={trades} />
           </div>
         </div>
 
@@ -89,7 +170,9 @@ export default function Dashboard() {
             <span>GROK TRADING BOT</span>
             <span className="text-neon-green font-mono">]</span>
             <span className="mx-2">|</span>
-            <span>Paper Trading Mode</span>
+            <span className={isConnected ? 'text-neon-green' : 'text-amber-400'}>
+              {isConnected ? 'Live' : 'Offline'} - Paper Trading Mode
+            </span>
             <span className="mx-2">|</span>
             <span className="text-neon-green">v0.1.0</span>
           </div>
@@ -102,70 +185,26 @@ export default function Dashboard() {
       {/* Corner Decorations */}
       <div className="fixed top-0 left-0 w-20 h-20 pointer-events-none opacity-30">
         <svg viewBox="0 0 100 100" className="w-full h-full">
-          <path
-            d="M0 30 L0 0 L30 0"
-            fill="none"
-            stroke="#00ff00"
-            strokeWidth="1"
-          />
-          <path
-            d="M0 20 L0 0 L20 0"
-            fill="none"
-            stroke="#00ff00"
-            strokeWidth="0.5"
-            opacity="0.5"
-          />
+          <path d="M0 30 L0 0 L30 0" fill="none" stroke="#00ff00" strokeWidth="1" />
+          <path d="M0 20 L0 0 L20 0" fill="none" stroke="#00ff00" strokeWidth="0.5" opacity="0.5" />
         </svg>
       </div>
       <div className="fixed top-0 right-0 w-20 h-20 pointer-events-none opacity-30">
         <svg viewBox="0 0 100 100" className="w-full h-full">
-          <path
-            d="M70 0 L100 0 L100 30"
-            fill="none"
-            stroke="#00ff00"
-            strokeWidth="1"
-          />
-          <path
-            d="M80 0 L100 0 L100 20"
-            fill="none"
-            stroke="#00ff00"
-            strokeWidth="0.5"
-            opacity="0.5"
-          />
+          <path d="M70 0 L100 0 L100 30" fill="none" stroke="#00ff00" strokeWidth="1" />
+          <path d="M80 0 L100 0 L100 20" fill="none" stroke="#00ff00" strokeWidth="0.5" opacity="0.5" />
         </svg>
       </div>
       <div className="fixed bottom-0 left-0 w-20 h-20 pointer-events-none opacity-30">
         <svg viewBox="0 0 100 100" className="w-full h-full">
-          <path
-            d="M0 70 L0 100 L30 100"
-            fill="none"
-            stroke="#00ff00"
-            strokeWidth="1"
-          />
-          <path
-            d="M0 80 L0 100 L20 100"
-            fill="none"
-            stroke="#00ff00"
-            strokeWidth="0.5"
-            opacity="0.5"
-          />
+          <path d="M0 70 L0 100 L30 100" fill="none" stroke="#00ff00" strokeWidth="1" />
+          <path d="M0 80 L0 100 L20 100" fill="none" stroke="#00ff00" strokeWidth="0.5" opacity="0.5" />
         </svg>
       </div>
       <div className="fixed bottom-0 right-0 w-20 h-20 pointer-events-none opacity-30">
         <svg viewBox="0 0 100 100" className="w-full h-full">
-          <path
-            d="M70 100 L100 100 L100 70"
-            fill="none"
-            stroke="#00ff00"
-            strokeWidth="1"
-          />
-          <path
-            d="M80 100 L100 100 L100 80"
-            fill="none"
-            stroke="#00ff00"
-            strokeWidth="0.5"
-            opacity="0.5"
-          />
+          <path d="M70 100 L100 100 L100 70" fill="none" stroke="#00ff00" strokeWidth="1" />
+          <path d="M80 100 L100 100 L100 80" fill="none" stroke="#00ff00" strokeWidth="0.5" opacity="0.5" />
         </svg>
       </div>
     </div>

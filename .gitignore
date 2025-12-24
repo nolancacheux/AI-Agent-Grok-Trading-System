@@ -41,8 +41,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+/lib/
+/lib64/
 parts/
 sdist/
 var/
@@ -200,7 +200,9 @@ site/
 
 # Project specific
 screenshots/
-.claude/
+.claude/*
+!.claude/CLAUDE.md
+!.claude/INSTRUCTIONS.md
 docs/
 *.pid
 *.seed

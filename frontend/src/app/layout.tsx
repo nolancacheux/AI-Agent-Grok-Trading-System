@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { Providers } from '@/lib/providers';
 
 export const metadata: Metadata = {
   title: 'GROK TRADING BOT',
@@ -35,7 +36,9 @@ export default function RootLayout({
 
         {/* Main Content */}
         <main className="relative z-10">
-          {children}
+          <Providers>
+            {children}
+          </Providers>
         </main>
       </body>
     </html>

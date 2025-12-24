@@ -6,6 +6,8 @@ import { formatCurrency } from '@/data/mockData';
 interface AgentStatusCardProps {
   agent: AgentState;
   lastTrade?: Trade;
+  onTriggerAnalysis?: () => void;
+  isAnalyzing?: boolean;
 }
 
 function RiskGauge({ value }: { value: number }) {
@@ -85,7 +87,7 @@ function RiskGauge({ value }: { value: number }) {
   );
 }
 
-export function AgentStatusCard({ agent, lastTrade }: AgentStatusCardProps) {
+export function AgentStatusCard({ agent, lastTrade, onTriggerAnalysis, isAnalyzing }: AgentStatusCardProps) {
   const statusConfig = {
     IDLE: {
       color: 'text-gray-400',
@@ -106,6 +108,13 @@ export function AgentStatusCard({ agent, lastTrade }: AgentStatusCardProps) {
       bg: 'bg-neon-green/10',
       border: 'border-neon-green/30',
       glow: 'animate-pulse glow-green',
+      icon: '!!',
+    },
+    ERROR: {
+      color: 'text-red-400',
+      bg: 'bg-red-400/10',
+      border: 'border-red-400/30',
+      glow: '',
       icon: '!!',
     },
   };
@@ -192,6 +201,31 @@ export function AgentStatusCard({ agent, lastTrade }: AgentStatusCardProps) {
           </div>
         )}
       </div>
+
+      {/* Trigger Analysis Button */}
+      {onTriggerAnalysis && (
+        <button
+          onClick={onTriggerAnalysis}
+          disabled={isAnalyzing || agent.status === 'ANALYZING'}
+          className={`w-full mt-4 py-3 px-4 rounded border font-mono text-sm uppercase tracking-wider transition-all duration-300
+            ${isAnalyzing || agent.status === 'ANALYZING'
+              ? 'bg-cyan-400/10 border-cyan-400/30 text-cyan-400 cursor-wait'
+              : 'bg-neon-green/10 border-neon-green/50 text-neon-green hover:bg-neon-green/20 hover:border-neon-green hover:shadow-[0_0_20px_rgba(0,255,0,0.3)]'
+            }`}
+        >
+          {isAnalyzing || agent.status === 'ANALYZING' ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="animate-spin">⟳</span>
+              Analyzing Market...
+            </span>
+          ) : (
+            <span className="flex items-center justify-center gap-2">
+              <span>▶</span>
+              Run Analysis
+            </span>
+          )}
+        </button>
+      )}
     </div>
   );
 }

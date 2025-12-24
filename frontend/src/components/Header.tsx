@@ -77,6 +77,7 @@ export function Header({ totalValue, pnl, pnlPercent, agentStatus }: HeaderProps
     IDLE: 'text-amber-400',
     ANALYZING: 'text-cyan-400',
     TRADING: 'text-neon-green',
+    ERROR: 'text-red-400',
   };
 
   const marketStatusColors: Record<MarketStatus, string> = {
