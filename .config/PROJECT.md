@@ -49,7 +49,9 @@ grok_trading/
 │   │   └── styles/
 │   ├── package.json
 │   └── Dockerfile
-├── docker-compose.yml
+├── docker-compose.yml          # Development Docker setup
+├── docker-compose.prod.yml     # Production Docker setup
+├── Caddyfile                   # Reverse proxy config
 ├── .env.example
 └── README.md
 ```
@@ -184,7 +186,7 @@ NEXT_PUBLIC_WS_URL=ws://localhost:8000/ws
 ## Common Commands
 
 ```bash
-# Backend
+# Backend (local development)
 cd backend
 python -m venv venv
 source venv/bin/activate  # Linux/Mac
@@ -192,14 +194,20 @@ source venv/bin/activate  # Linux/Mac
 pip install -r requirements.txt
 uvicorn src.api.main:app --reload
 
-# Frontend
+# Frontend (local development)
 cd frontend
 npm install
 npm run dev
 
-# Docker
-docker-compose up -d
-docker-compose logs -f
+# Docker (development)
+docker compose up -d
+docker compose logs -f
+docker compose down
+
+# Docker (production)
+docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml logs -f
+docker compose -f docker-compose.prod.yml down
 
 # IBKR Gateway
 # Start IBC (IBKR Controller) - see docs/IBKR_SETUP.md
@@ -323,7 +331,7 @@ docker-compose logs -f
 
 ### Phase 4: VPS Deployment
 - [ ] Setup VPS with security hardening
-- [ ] Docker deployment
+- [x] Docker deployment (Dockerfiles, docker-compose, Caddy)
 - [ ] Monitoring and alerting
 - [ ] Automated backups
 

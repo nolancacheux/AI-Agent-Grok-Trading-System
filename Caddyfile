@@ -1,0 +1,35 @@
+# Replace with your actual domain
+{$DOMAIN:localhost} {
+    # Frontend
+    handle {
+        reverse_proxy frontend:3000
+    }
+
+    # API routes
+    handle /api/* {
+        reverse_proxy backend:8000
+    }
+
+    handle /health {
+        reverse_proxy backend:8000
+    }
+
+    handle /ws* {
+        reverse_proxy backend:8000
+    }
+
+    # Security headers
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy strict-origin-when-cross-origin
+        -Server
+    }
+
+    # Logging
+    log {
+        output file /var/log/caddy/access.log
+        format json
+    }
+}
