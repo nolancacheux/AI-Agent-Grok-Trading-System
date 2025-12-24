@@ -3,9 +3,13 @@ from typing import Optional
 from datetime import datetime
 from loguru import logger
 from ib_insync import IB, Stock, MarketOrder, LimitOrder, Contract, Trade as IBTrade
+import nest_asyncio
 
 from src.config import get_settings
 from src.models import Position, TradeOrder, TradeResult, TradeAction, OrderType
+
+# Enable nested event loops for ib_insync compatibility
+nest_asyncio.apply()
 
 
 class IBKRClient:
@@ -30,16 +34,16 @@ class IBKRClient:
             logger.info(
                 f"Connecting to IBKR at {self.settings.ibkr_host}:{self.settings.ibkr_port}"
             )
-            await asyncio.wait_for(
-                asyncio.to_thread(
-                    self.ib.connect,
-                    self.settings.ibkr_host,
-                    self.settings.ibkr_port,
-                    clientId=self.settings.ibkr_client_id,
-                    readonly=False
-                ),
-                timeout=10.0
+
+            # ib_insync connect is synchronous but manages its own event loop
+            self.ib.connect(
+                self.settings.ibkr_host,
+                self.settings.ibkr_port,
+                clientId=self.settings.ibkr_client_id,
+                readonly=False,
+                timeout=10
             )
+
             self._connected = True
             logger.info("Connected to IBKR successfully")
 
@@ -49,9 +53,6 @@ class IBKRClient:
 
             return True
 
-        except asyncio.TimeoutError:
-            logger.error("Connection to IBKR timed out")
-            return False
         except Exception as e:
             logger.error(f"Failed to connect to IBKR: {e}")
             return False
@@ -69,7 +70,7 @@ class IBKRClient:
             raise ConnectionError("Not connected to IBKR")
 
         summary = {}
-        account_values = await asyncio.to_thread(self.ib.accountSummary)
+        account_values = self.ib.accountSummary()
 
         for av in account_values:
             if av.tag in ["TotalCashValue", "NetLiquidation", "GrossPositionValue"]:
@@ -93,7 +94,7 @@ class IBKRClient:
             raise ConnectionError("Not connected to IBKR")
 
         positions = []
-        ib_positions = await asyncio.to_thread(self.ib.positions)
+        ib_positions = self.ib.positions()
 
         for pos in ib_positions:
             if pos.position != 0:
@@ -112,7 +113,7 @@ class IBKRClient:
         try:
             self.ib.qualifyContracts(contract)
             ticker = self.ib.reqMktData(contract, snapshot=True)
-            await asyncio.sleep(1)  # Wait for data
+            self.ib.sleep(2)  # Wait for data
             self.ib.cancelMktData(contract)
 
             if ticker.last and ticker.last > 0:
@@ -176,7 +177,7 @@ class IBKRClient:
             # Wait for fill (with timeout)
             start_time = datetime.now()
             while not trade.isDone():
-                await asyncio.sleep(0.5)
+                self.ib.sleep(0.5)
                 if (datetime.now() - start_time).seconds > 30:
                     self.ib.cancelOrder(ib_order)
                     return TradeResult(
@@ -191,7 +192,11 @@ class IBKRClient:
             if trade.orderStatus.status == "Filled":
                 fill = trade.fills[-1] if trade.fills else None
                 executed_price = fill.execution.price if fill else 0.0
-                commission = sum(f.commissionReport.commission for f in trade.fills if f.commissionReport)
+                commission = sum(
+                    f.commissionReport.commission
+                    for f in trade.fills
+                    if f.commissionReport and f.commissionReport.commission
+                )
 
                 cash_after = await self.get_cash_balance()
 
