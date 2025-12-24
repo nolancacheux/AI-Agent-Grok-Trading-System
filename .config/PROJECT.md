@@ -1,4 +1,4 @@
-# CLAUDE.md - Grok Trading Bot
+# PROJECT.md - Grok Trading Bot
 
 This file provides guidance when working with code in this repository.
 
@@ -15,8 +15,8 @@ This file provides guidance when working with code in this repository.
 
 ```
 grok_trading/
-├── .claude/                    # Claude Code configuration
-│   ├── CLAUDE.md              # Project documentation (this file)
+├── .config/                    # Project configuration
+│   ├── PROJECT.md             # Project documentation (this file)
 │   └── INSTRUCTIONS.md        # Development instructions
 ├── backend/                    # Python backend
 │   ├── src/
@@ -261,7 +261,6 @@ docker-compose logs -f
 - **TypeScript**: Strict mode, ESLint + Prettier
 - **Line length**: 100 characters
 - **Commits**: Conventional commits (feat/fix/docs/refactor)
-- **Never mention "Claude" or "AI" in commits**
 
 ## Risk Management
 
@@ -298,7 +297,7 @@ docker-compose logs -f
 1. Write tests for critical paths
 2. Use type hints everywhere
 3. Document all trading logic
-4. Keep CLAUDE.md updated
+4. Keep PROJECT.md updated
 5. Review code before merging
 
 ## Project Phases

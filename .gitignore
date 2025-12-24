@@ -200,9 +200,9 @@ site/
 
 # Project specific
 screenshots/
-.claude/*
-!.claude/CLAUDE.md
-!.claude/INSTRUCTIONS.md
+.config/*
+!.config/PROJECT.md
+!.config/INSTRUCTIONS.md
 docs/
 *.pid
 *.seed
