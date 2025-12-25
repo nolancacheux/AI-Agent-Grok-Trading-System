@@ -49,9 +49,14 @@ grok_trading/
 │   │   └── styles/
 │   ├── package.json
 │   └── Dockerfile
+├── scripts/                    # Deployment scripts
+│   ├── setup-vps.sh           # VPS initial setup
+│   ├── backup.sh              # Automated backup
+│   └── restore.sh             # Restore from backup
 ├── docker-compose.yml          # Development Docker setup
 ├── docker-compose.prod.yml     # Production Docker setup
 ├── Caddyfile                   # Reverse proxy config
+├── DEPLOYMENT.md               # Deployment guide
 ├── .env.example
 └── README.md
 ```
@@ -329,11 +334,11 @@ docker compose -f docker-compose.prod.yml down
 - [x] Add performance charts
 - [x] Connect frontend to backend API
 
-### Phase 4: VPS Deployment
-- [ ] Setup VPS with security hardening
+### Phase 4: VPS Deployment ✅
+- [x] Setup VPS with security hardening (setup-vps.sh)
 - [x] Docker deployment (Dockerfiles, docker-compose, Caddy)
-- [ ] Monitoring and alerting
-- [ ] Automated backups
+- [x] Monitoring and alerting (Uptime Kuma)
+- [x] Automated backups (backup.sh, restore.sh)
 
 ### Phase 5: Optimization
 - [ ] Performance tuning
