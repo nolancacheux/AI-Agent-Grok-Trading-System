@@ -42,6 +42,14 @@ class Position(BaseModel):
             return 0.0
         return ((self.current_price - self.avg_price) / self.avg_price) * 100
 
+    def model_dump(self, **kwargs):
+        """Include computed properties in serialization."""
+        data = super().model_dump(**kwargs)
+        data["value"] = self.value
+        data["pnl"] = self.pnl
+        data["pnl_percent"] = self.pnl_percent
+        return data
+
 
 class TradeOrder(BaseModel):
     symbol: str

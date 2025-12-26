@@ -8,49 +8,31 @@ const config: Config = {
   ],
   theme: {
     extend: {
-      colors: {
-        bg: {
-          primary: '#0d1117',
-          secondary: '#161b22',
-          tertiary: '#21262d',
-        },
-        border: {
-          primary: '#30363d',
-          secondary: '#21262d',
-        },
-        text: {
-          primary: '#f0f6fc',
-          secondary: '#8b949e',
-          muted: '#6e7681',
-        },
-        accent: {
-          green: '#3fb950',
-          'green-muted': '#238636',
-          red: '#f85149',
-          'red-muted': '#da3633',
-          blue: '#58a6ff',
-          yellow: '#d29922',
-          orange: '#f0883e',
-        },
-      },
       fontFamily: {
-        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
-        mono: ['JetBrains Mono', 'SF Mono', 'Consolas', 'monospace'],
+        display: ['Space Grotesk', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        sans: ['DM Sans', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        mono: ['JetBrains Mono', 'SF Mono', 'Fira Code', 'monospace'],
       },
       animation: {
-        'pulse': 'pulse 2s ease-in-out infinite',
+        'pulse-glow': 'pulse-glow 2s ease-in-out infinite',
         'slide-up': 'slideUp 0.3s ease-out',
+        'slide-in': 'slideIn 0.3s ease-out',
         'fade-in': 'fadeIn 0.3s ease-out',
-        'shimmer': 'shimmer 1.5s infinite',
+        'shimmer': 'shimmer 1.5s ease-in-out infinite',
+        'spin': 'spin 1s linear infinite',
       },
       keyframes: {
-        pulse: {
+        'pulse-glow': {
           '0%, 100%': { opacity: '1' },
-          '50%': { opacity: '0.5' },
+          '50%': { opacity: '0.6' },
         },
         slideUp: {
-          '0%': { transform: 'translateY(10px)', opacity: '0' },
+          '0%': { transform: 'translateY(8px)', opacity: '0' },
           '100%': { transform: 'translateY(0)', opacity: '1' },
+        },
+        slideIn: {
+          '0%': { transform: 'translateX(-8px)', opacity: '0' },
+          '100%': { transform: 'translateX(0)', opacity: '1' },
         },
         fadeIn: {
           '0%': { opacity: '0' },
@@ -60,16 +42,25 @@ const config: Config = {
           '0%': { backgroundPosition: '-200% 0' },
           '100%': { backgroundPosition: '200% 0' },
         },
-      },
-      boxShadow: {
-        'card': '0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24)',
-        'card-hover': '0 4px 6px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.12)',
+        spin: {
+          to: { transform: 'rotate(360deg)' },
+        },
       },
       borderRadius: {
-        'card': '6px',
+        'sm': '6px',
+        'md': '10px',
+        'lg': '14px',
+        'xl': '20px',
+      },
+      spacing: {
+        'sidebar': 'var(--sidebar-width)',
+        'sidebar-collapsed': 'var(--sidebar-collapsed)',
+        'header': 'var(--header-height)',
+        'panel-gap': 'var(--panel-gap)',
       },
     },
   },
   plugins: [],
 }
+
 export default config

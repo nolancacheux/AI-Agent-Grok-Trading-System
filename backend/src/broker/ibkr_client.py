@@ -1,4 +1,5 @@
 import asyncio
+import math
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 from datetime import datetime
@@ -104,26 +105,46 @@ class IBKRClient:
         summary = await self.get_account_summary()
         return summary.get("NetLiquidation", 0.0)
 
+    def _safe_float(self, value, default: float = 0.0) -> float:
+        """Convert value to float safely, handling nan and None."""
+        if value is None:
+            return default
+        try:
+            f = float(value)
+            return default if math.isnan(f) or math.isinf(f) else f
+        except (TypeError, ValueError):
+            return default
+
     def _sync_get_positions(self) -> list[dict]:
         """Sync get positions - runs in thread."""
         positions = []
         ib_positions = self.ib.positions()
         for pos in ib_positions:
             if pos.position != 0:
-                # Get current price sync
+                avg_price = self._safe_float(pos.avgCost, 0.0)
+                current_price = avg_price  # Default to avg cost
+
+                # Try to get current price
                 try:
                     self.ib.qualifyContracts(pos.contract)
                     ticker = self.ib.reqMktData(pos.contract, snapshot=True)
                     self.ib.sleep(1)
                     self.ib.cancelMktData(pos.contract)
-                    current_price = ticker.last if ticker.last and ticker.last > 0 else (ticker.close or 0.0)
-                except Exception:
-                    current_price = 0.0
+
+                    last = self._safe_float(ticker.last, 0.0)
+                    close = self._safe_float(ticker.close, 0.0)
+
+                    if last > 0:
+                        current_price = last
+                    elif close > 0:
+                        current_price = close
+                except Exception as e:
+                    logger.warning(f"Could not get price for {pos.contract.symbol}: {e}")
 
                 positions.append({
                     "symbol": pos.contract.symbol,
                     "quantity": int(pos.position),
-                    "avg_price": pos.avgCost,
+                    "avg_price": avg_price,
                     "current_price": current_price
                 })
         return positions

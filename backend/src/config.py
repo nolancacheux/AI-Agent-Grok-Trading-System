@@ -20,7 +20,6 @@ class Settings(BaseSettings):
     xai_model: str = "grok-4-1-fast-reasoning"
 
     # Trading
-    initial_cash: float = 1000000.0
     trading_interval_minutes: int = 30
     max_position_pct: float = 0.95
     stop_loss_pct: float = 0.20
@@ -33,8 +32,9 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:3000"
 
     class Config:
-        env_file = ".env"
+        env_file = "../.env"
         env_file_encoding = "utf-8"
+        extra = "ignore"
 
 
 @lru_cache

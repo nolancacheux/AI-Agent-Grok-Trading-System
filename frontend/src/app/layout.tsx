@@ -3,8 +3,8 @@ import './globals.css';
 import { Providers } from '@/lib/providers';
 
 export const metadata: Metadata = {
-  title: 'Trading Dashboard',
-  description: 'Automated trading dashboard',
+  title: 'Grok Trading Dashboard',
+  description: 'AI-powered autonomous trading dashboard with real-time portfolio monitoring',
   icons: {
     icon: '/favicon.ico',
   },
@@ -16,13 +16,30 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-bg-primary text-text-primary antialiased">
-        <main className="relative">
-          <Providers>
-            {children}
-          </Providers>
-        </main>
+    <html lang="en" data-theme="dark" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  const stored = localStorage.getItem('grok-trading-storage');
+                  if (stored) {
+                    const { state } = JSON.parse(stored);
+                    if (state?.theme) {
+                      document.documentElement.setAttribute('data-theme', state.theme);
+                    }
+                  }
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
+      </head>
+      <body className="antialiased">
+        <Providers>
+          {children}
+        </Providers>
       </body>
     </html>
   );
