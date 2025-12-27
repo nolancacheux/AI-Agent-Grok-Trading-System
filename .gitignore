@@ -211,5 +211,8 @@ docs/
 .env.production
 prompt
 
-.claude
+# Claude Code
+.claude/
 claude/
+CLAUDE.md
+**/CLAUDE.md

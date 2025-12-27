@@ -173,29 +173,53 @@ export function Header({
 
         {/* System Status */}
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-label">SYS:</span>
-            <span className={clsx('status-dot', isConnected ? 'on' : 'off')} />
-            <span className={clsx('font-mono text-xs', isConnected ? 'text-profit' : 'text-[var(--color-text-muted)]')}>
-              {isConnected ? 'ON' : 'OFF'}
-            </span>
+          {/* SYS Status with tooltip */}
+          <div className="relative group">
+            <div className="flex items-center gap-2 cursor-help">
+              <span className="text-label">SYS:</span>
+              <span className={clsx('status-dot', isConnected ? 'on' : 'off')} />
+              <span className={clsx('font-mono text-xs', isConnected ? 'text-profit' : 'text-[var(--color-text-muted)]')}>
+                {isConnected ? 'ON' : 'OFF'}
+              </span>
+            </div>
+            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-xs text-zinc-300 whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 shadow-lg">
+              {isConnected ? 'Connected to Interactive Brokers' : 'Not connected to broker - trades disabled'}
+              <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-zinc-800 border-l border-t border-zinc-700 rotate-45" />
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-label">MKT:</span>
-            <span className={clsx('font-mono text-xs', marketStatusConfig[marketStatus].class)}>
-              {marketStatusConfig[marketStatus].label}
-            </span>
+          {/* MKT Status with tooltip */}
+          <div className="relative group">
+            <div className="flex items-center gap-2 cursor-help">
+              <span className="text-label">MKT:</span>
+              <span className={clsx('font-mono text-xs', marketStatusConfig[marketStatus].class)}>
+                {marketStatusConfig[marketStatus].label}
+              </span>
+            </div>
+            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-xs text-zinc-300 whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 shadow-lg">
+              {marketStatus === 'OPEN' && 'NYSE/NASDAQ regular hours (9:30 AM - 4:00 PM ET)'}
+              {marketStatus === 'CLOSED' && 'Market is closed - no trading'}
+              {marketStatus === 'PRE_MARKET' && 'Pre-market session (4:00 AM - 9:30 AM ET)'}
+              {marketStatus === 'AFTER_HOURS' && 'After-hours session (4:00 PM - 8:00 PM ET)'}
+              <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-zinc-800 border-l border-t border-zinc-700 rotate-45" />
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-label">MODE:</span>
-            <span className={clsx(
-              'font-mono text-xs',
-              tradingMode === 'AUTO' ? 'text-profit' : 'text-info'
-            )}>
-              {tradingMode}
-            </span>
+          {/* MODE with tooltip */}
+          <div className="relative group">
+            <div className="flex items-center gap-2 cursor-help">
+              <span className="text-label">MODE:</span>
+              <span className={clsx(
+                'font-mono text-xs',
+                tradingMode === 'AUTO' ? 'text-profit' : 'text-info'
+              )}>
+                {tradingMode}
+              </span>
+            </div>
+            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-xs text-zinc-300 whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 shadow-lg">
+              {tradingMode === 'AUTO' ? 'Bot trades automatically every 30 min during market hours' : 'Bot only trades when you trigger analysis manually'}
+              <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-zinc-800 border-l border-t border-zinc-700 rotate-45" />
+            </div>
           </div>
         </div>
       </div>

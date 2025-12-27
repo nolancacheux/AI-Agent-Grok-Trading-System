@@ -1,4 +1,5 @@
 import asyncio
+import json
 from datetime import datetime
 from typing import Optional
 from loguru import logger
@@ -11,6 +12,7 @@ from src.models import (
 from src.broker.ibkr_client import get_ibkr_client
 from src.agent.grok_client import get_grok_client
 from src.market_data.yahoo_finance import get_yahoo_client
+from src.database import get_db
 
 
 class TradingAgent:
@@ -21,12 +23,14 @@ class TradingAgent:
         self.ibkr = get_ibkr_client()
         self.grok = get_grok_client()
         self.yahoo = get_yahoo_client()
+        self.db = get_db()
 
         self._status = AgentStatus.IDLE
         self._trades: list[Trade] = []
         self._initial_value: Optional[float] = None
         self._last_action: Optional[str] = None
         self._last_action_time: Optional[datetime] = None
+        self._last_decision: Optional[dict] = None  # Store last decision for display
 
     @property
     def status(self) -> AgentStatus:
@@ -144,16 +148,57 @@ class TradingAgent:
 
             logger.info(f"Grok decision: {decision}")
 
+            # Store last decision for display
+            self._last_decision = decision
+
+            # Create context for logging
+            decision_context = {
+                "portfolio": {
+                    "cash": state.cash,
+                    "total_value": state.total_value,
+                    "positions_count": len(state.positions),
+                    "pnl_percent": state.pnl_percent
+                },
+                "market_data": {sym: {"price": d["current_price"], "change_1d": d["change_1d"]}
+                               for sym, d in market_data.items()},
+                "timestamp": datetime.now().isoformat()
+            }
+
             # Execute the decision
-            if decision["action"] == "HOLD":
-                logger.info("Grok decided to HOLD - no action taken")
-                self._last_action = "HOLD - Market analysis complete, no trades recommended"
+            if decision["action"] in ["HOLD", "KEEP"]:
+                logger.info(f"Grok decided to {decision['action']} - no action taken")
+                self._last_action = f"{decision['action']} - {decision.get('reasoning', 'Market analysis complete, no trades recommended')}"
                 self._last_action_time = datetime.now()
+
+                # Save KEEP decision to database
+                self.db.save_decision(
+                    action="keep",
+                    reasoning=decision.get("reasoning", "No specific reasoning provided"),
+                    symbol=decision.get("symbol"),
+                    context=decision_context,
+                    risk_score=decision.get("risk_score"),
+                    executed=False
+                )
+
                 self._status = AgentStatus.IDLE
                 return None
 
             if decision["action"] in ["BUY", "SELL", "CLOSE"]:
-                return await self._execute_decision(decision, market_data)
+                trade = await self._execute_decision(decision, market_data)
+
+                # Save decision to database (with trade reference if executed)
+                self.db.save_decision(
+                    action=decision["action"].lower(),
+                    reasoning=decision.get("reasoning", ""),
+                    symbol=decision.get("symbol"),
+                    quantity=decision.get("quantity"),
+                    context=decision_context,
+                    risk_score=decision.get("risk_score", 50),
+                    executed=trade is not None,
+                    trade_id=int(trade.id) if trade and trade.id.isdigit() else None
+                )
+
+                return trade
 
             self._status = AgentStatus.IDLE
             return None

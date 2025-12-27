@@ -24,7 +24,13 @@ async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> 
 
 // Health check
 export async function getHealth() {
-  return fetchApi<{ status: string; ibkr_connected: boolean }>('/health');
+  return fetchApi<{
+    status: string;
+    ibkr_connected: boolean;
+    scheduler_mode: 'MANUAL' | 'AUTO';
+    scheduler_running: boolean;
+    market_status: 'CLOSED' | 'PRE_MARKET' | 'OPEN' | 'AFTER_HOURS';
+  }>('/health');
 }
 
 // Portfolio
@@ -129,6 +135,45 @@ export async function getTrades() {
   }>('/api/agent/trades');
 }
 
+export async function getDecisions(options: { limit?: number; action?: string; symbol?: string } = {}) {
+  const params = new URLSearchParams();
+  if (options.limit) params.append('limit', options.limit.toString());
+  if (options.action) params.append('action', options.action);
+  if (options.symbol) params.append('symbol', options.symbol);
+
+  return fetchApi<{
+    decisions: Array<{
+      id: number;
+      timestamp: string;
+      action: 'buy' | 'sell' | 'close' | 'keep';
+      symbol?: string;
+      quantity?: number;
+      reasoning: string;
+      context?: string;
+      risk_score?: number;
+      trading_session_id?: string;
+      executed: boolean;
+      trade_id?: number;
+    }>;
+  }>(`/api/agent/decisions?${params.toString()}`);
+}
+
+export async function getLastDecision() {
+  return fetchApi<{
+    current_session: Record<string, unknown> | null;
+    last_persisted: {
+      id: number;
+      timestamp: string;
+      action: string;
+      symbol?: string;
+      reasoning: string;
+      context?: string;
+      risk_score?: number;
+      executed: boolean;
+    } | null;
+  }>('/api/agent/last-decision');
+}
+
 // Trading
 export async function getStockPrice(symbol: string) {
   return fetchApi<{ symbol: string; price: number }>(`/api/price/${symbol}`);
@@ -169,6 +214,8 @@ export async function getSchedulerStatus() {
       next_run: string | null;
     }>;
     trading_interval_minutes: number;
+    trade_count_since_reflection: number;
+    reflection_trades_threshold: number;
   }>('/api/scheduler/status');
 }
 
@@ -178,6 +225,22 @@ export async function setSchedulerMode(mode: 'MANUAL' | 'AUTO') {
 
 export async function triggerTradingLoop() {
   return fetchApi<{ message: string }>('/api/scheduler/trigger', { method: 'POST' });
+}
+
+// Broker Connection
+export async function disconnectBroker(reconnectMinutes: number = 5) {
+  return fetchApi<{
+    status: string;
+    message: string;
+    reconnect_at?: number;
+  }>(`/api/broker/disconnect?reconnect_minutes=${reconnectMinutes}`, { method: 'POST' });
+}
+
+export async function reconnectBroker() {
+  return fetchApi<{
+    status: string;
+    message: string;
+  }>('/api/broker/reconnect', { method: 'POST' });
 }
 
 // Chat History

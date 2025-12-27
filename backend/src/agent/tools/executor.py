@@ -8,6 +8,7 @@ from loguru import logger
 from src.broker.ibkr_client import get_ibkr_client
 from src.market_data.yahoo_finance import get_yahoo_client
 from src.database import get_db
+from src.scheduler.trading_scheduler import get_scheduler
 from src.models import TradeOrder, TradeAction, OrderType
 
 
@@ -18,7 +19,16 @@ class ToolExecutor:
         self.ibkr = get_ibkr_client()
         self.yahoo = get_yahoo_client()
         self.db = get_db()
+        self._grok_client = None
         self._pending_orders = {}  # For stop-loss/take-profit tracking
+
+    @property
+    def grok(self):
+        """Lazy load Grok client to avoid circular imports."""
+        if self._grok_client is None:
+            from src.agent.grok_client import get_grok_client
+            self._grok_client = get_grok_client()
+        return self._grok_client
 
     async def execute(self, tool_name: str, arguments: dict) -> dict:
         """Execute a tool and return the result."""
@@ -209,6 +219,13 @@ class ToolExecutor:
                 }
                 self.db.save_trade(trade_data)
 
+                # Increment trade count for reflection threshold
+                try:
+                    scheduler = get_scheduler()
+                    scheduler.increment_trade_count()
+                except Exception as e:
+                    logger.warning(f"Could not increment trade count: {e}")
+
                 return {
                     "success": True,
                     "order_id": result.order_id,
@@ -366,29 +383,78 @@ class ToolExecutor:
         }
 
     async def _search_news(self, args: dict) -> dict:
-        """Search for news about a stock or topic."""
+        """Search for real-time news using Grok's live search."""
         query = args.get("query", "")
         symbol = args.get("symbol")
 
         if not query:
             return {"error": "Query is required"}
 
-        # For now, return a placeholder - this would integrate with a news API
-        # In production, this could use Grok's live search capability
-        search_query = f"{symbol} {query}" if symbol else query
+        # Build search query
+        if symbol:
+            search_query = f"{symbol} stock {query}"
+        else:
+            search_query = query
 
         # Log the search request
         self.db.log(
-            message=f"News search: {search_query}",
+            message=f"Live news search: {search_query}",
             component="news",
             level="INFO"
         )
 
-        return {
-            "query": search_query,
-            "message": "News search functionality - use Grok's web search capabilities for real-time news",
-            "suggestion": f"Search the web for: '{search_query} stock news today'"
-        }
+        try:
+            # Use Grok's live search for real-time news
+            result = self.grok.chat_with_live_search(
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a financial news analyst. Search for the latest news and provide a concise summary of the most important and relevant information for trading decisions."
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Search for the latest news about: {search_query}. Focus on market-moving news, earnings, analyst ratings, and any catalysts."
+                    }
+                ],
+                sources=["news", "x", "web"],
+                return_citations=True
+            )
+
+            # Format citations for response
+            citations = result.get("citations", [])
+            formatted_citations = []
+            for citation in citations[:5]:  # Limit to top 5 sources
+                if isinstance(citation, dict):
+                    formatted_citations.append({
+                        "title": citation.get("title", ""),
+                        "url": citation.get("url", ""),
+                        "source": citation.get("source", "")
+                    })
+                elif isinstance(citation, str):
+                    formatted_citations.append({"url": citation})
+
+            self.db.log(
+                message=f"News search completed: {len(formatted_citations)} sources found",
+                component="news",
+                level="INFO"
+            )
+
+            return {
+                "query": search_query,
+                "symbol": symbol,
+                "summary": result.get("content", "No results found"),
+                "citations": formatted_citations,
+                "sources_searched": result.get("sources_searched", []),
+                "success": "error" not in result
+            }
+
+        except Exception as e:
+            logger.error(f"News search failed: {e}")
+            return {
+                "query": search_query,
+                "error": str(e),
+                "message": "Live search failed, please try again"
+            }
 
     async def _set_stop_loss(self, args: dict) -> dict:
         """Set a stop-loss order."""

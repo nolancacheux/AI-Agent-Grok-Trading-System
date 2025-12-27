@@ -60,6 +60,58 @@ class GrokClient:
             logger.error(f"Grok API error: {e}")
             raise
 
+    def chat_with_live_search(
+        self,
+        messages: list[dict],
+        sources: list = None,
+        return_citations: bool = True,
+        model: Optional[str] = None,
+        temperature: float = 0.7,
+        max_tokens: int = 4096
+    ) -> dict:
+        """Chat with Grok's live search enabled for real-time web/news/X search."""
+        if sources is None:
+            sources = ["web", "news", "x"]
+
+        try:
+            response = self.client.chat.completions.create(
+                model=model or self.settings.xai_model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                search_parameters={
+                    "mode": "on",
+                    "max_search_results": self.settings.grok_search_max_results,
+                    "return_citations": return_citations,
+                    "sources": sources
+                }
+            )
+
+            content = response.choices[0].message.content or ""
+            citations = []
+
+            # Extract citations if available
+            if hasattr(response, 'citations'):
+                citations = response.citations
+            elif hasattr(response.choices[0].message, 'citations'):
+                citations = response.choices[0].message.citations
+
+            logger.info(f"Live search completed with {len(citations)} citations")
+
+            return {
+                "content": content,
+                "citations": citations,
+                "sources_searched": sources
+            }
+
+        except Exception as e:
+            logger.error(f"Grok live search error: {e}")
+            return {
+                "content": f"Search failed: {str(e)}",
+                "citations": [],
+                "error": str(e)
+            }
+
     async def chat_with_tools(
         self,
         messages: list[dict],
@@ -91,6 +143,17 @@ class GrokClient:
 
                 # Check if we have tool calls
                 if message.tool_calls:
+                    # Build tool calls summary for saving
+                    tool_calls_summary = ", ".join([tc.function.name for tc in message.tool_calls])
+                    assistant_content = message.content or f"[Calling tools: {tool_calls_summary}]"
+
+                    # Save assistant message with tool calls to chat history
+                    self.db.save_chat_message(
+                        role="assistant",
+                        content=assistant_content,
+                        tokens=response.usage.total_tokens if response.usage else None
+                    )
+
                     # Add assistant message with tool calls
                     current_messages.append({
                         "role": "assistant",
@@ -121,6 +184,13 @@ class GrokClient:
 
                         # Execute the tool
                         result = await execute_tool(func_name, func_args)
+
+                        # Save tool result to chat history
+                        result_preview = json.dumps(result)[:500]
+                        self.db.save_chat_message(
+                            role="system",
+                            content=f"[Tool: {func_name}] {result_preview}"
+                        )
 
                         # Add tool result
                         current_messages.append({

@@ -9,9 +9,9 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        display: ['Space Grotesk', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
-        sans: ['DM Sans', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
-        mono: ['JetBrains Mono', 'SF Mono', 'Fira Code', 'monospace'],
+        display: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        mono: ['Inter', 'SF Mono', 'Fira Code', 'monospace'],
       },
       animation: {
         'pulse-glow': 'pulse-glow 2s ease-in-out infinite',

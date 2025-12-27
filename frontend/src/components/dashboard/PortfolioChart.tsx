@@ -118,9 +118,11 @@ export function PortfolioChart({ data, initialValue }: PortfolioChartProps) {
       <div className="card-header">
         <div className="flex items-center gap-3">
           <span className="card-title">Portfolio Value History</span>
-          <span className="text-xs text-[var(--color-text-muted)] font-mono">
-            ({filteredData.length} points)
-          </span>
+          {filteredData.length > 0 && (
+            <span className="text-xs text-[var(--color-text-muted)] font-mono">
+              ({filteredData.length} points)
+            </span>
+          )}
         </div>
 
         <div className="chart-controls">
@@ -173,8 +175,13 @@ export function PortfolioChart({ data, initialValue }: PortfolioChartProps) {
 
       <div className="card-body flush flex-1 min-h-0">
         {chartData.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-[var(--color-text-muted)]">
-            No data available
+          <div className="flex flex-col items-center justify-center h-full text-center px-4">
+            <div className="text-[var(--color-text-muted)] mb-2">No historical data yet</div>
+            <div className="text-xs text-[var(--color-text-muted)] opacity-60">
+              Portfolio snapshots are recorded every minute during market hours.
+              <br />
+              Data will appear here once snapshots are collected.
+            </div>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">

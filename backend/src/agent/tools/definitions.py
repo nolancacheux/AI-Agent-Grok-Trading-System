@@ -213,7 +213,7 @@ TRADING_TOOLS = [
         "type": "function",
         "function": {
             "name": "search_news",
-            "description": "Search for recent news and catalysts about a stock or topic. Uses web search to find relevant articles.",
+            "description": "Search for REAL-TIME news and market catalysts using Grok's live search. Searches news sites, X/Twitter, and the web simultaneously. Returns summaries with source citations. Use this for earnings news, analyst ratings, market-moving events, and stock catalysts.",
             "parameters": {
                 "type": "object",
                 "properties": {

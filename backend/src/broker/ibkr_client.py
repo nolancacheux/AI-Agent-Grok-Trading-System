@@ -2,7 +2,7 @@ import asyncio
 import math
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 from loguru import logger
 from ib_insync import IB, Stock, MarketOrder, LimitOrder, Contract, Trade as IBTrade
 import nest_asyncio
@@ -24,10 +24,48 @@ class IBKRClient:
         self.settings = get_settings()
         self.ib = IB()
         self._connected = False
+        # Track symbols with market data subscription issues (error 10089)
+        self._market_data_failures: dict[str, datetime] = {}
+        self._market_data_cooldown_minutes: int = 60
+        self._yahoo = None  # Lazy-loaded Yahoo client
 
     @property
     def connected(self) -> bool:
         return self._connected and self.ib.isConnected()
+
+    @property
+    def yahoo(self):
+        """Lazy load Yahoo client to avoid circular imports."""
+        if self._yahoo is None:
+            from src.market_data.yahoo_finance import get_yahoo_client
+            self._yahoo = get_yahoo_client()
+        return self._yahoo
+
+    def _should_try_ibkr_market_data(self, symbol: str) -> bool:
+        """Check if we should attempt IBKR market data for this symbol."""
+        if symbol not in self._market_data_failures:
+            return True
+
+        failure_time = self._market_data_failures[symbol]
+        cooldown = timedelta(minutes=self._market_data_cooldown_minutes)
+
+        if datetime.now() - failure_time > cooldown:
+            # Cooldown expired, remove from failures and retry
+            del self._market_data_failures[symbol]
+            return True
+
+        return False
+
+    def _mark_market_data_failure(self, symbol: str, error_msg: str):
+        """Mark a symbol as having market data subscription issues."""
+        error_str = str(error_msg).lower()
+        # Detect error 10089 or other market data subscription issues
+        if "10089" in error_str or "no market data" in error_str or "no valid price" in error_str:
+            self._market_data_failures[symbol] = datetime.now()
+            logger.warning(
+                f"Market data issue for {symbol}. Using Yahoo fallback. "
+                f"Will not retry IBKR for {self._market_data_cooldown_minutes} minutes."
+            )
 
     def _sync_connect(self) -> bool:
         """Synchronous connect - runs in thread."""
@@ -116,37 +154,59 @@ class IBKRClient:
             return default
 
     def _sync_get_positions(self) -> list[dict]:
-        """Sync get positions - runs in thread."""
+        """Sync get positions - runs in thread with Yahoo Finance fallback."""
         positions = []
         ib_positions = self.ib.positions()
+
         for pos in ib_positions:
             if pos.position != 0:
+                symbol = pos.contract.symbol
                 avg_price = self._safe_float(pos.avgCost, 0.0)
-                current_price = avg_price  # Default to avg cost
+                current_price = avg_price  # Default fallback
+                price_source = "avg_cost"
 
-                # Try to get current price
-                try:
-                    self.ib.qualifyContracts(pos.contract)
-                    ticker = self.ib.reqMktData(pos.contract, snapshot=True)
-                    self.ib.sleep(1)
-                    self.ib.cancelMktData(pos.contract)
+                # Try IBKR first if no known market data issues
+                if self._should_try_ibkr_market_data(symbol):
+                    try:
+                        self.ib.qualifyContracts(pos.contract)
+                        ticker = self.ib.reqMktData(pos.contract, snapshot=True)
+                        self.ib.sleep(1)
+                        self.ib.cancelMktData(pos.contract)
 
-                    last = self._safe_float(ticker.last, 0.0)
-                    close = self._safe_float(ticker.close, 0.0)
+                        last = self._safe_float(ticker.last, 0.0)
+                        close = self._safe_float(ticker.close, 0.0)
 
-                    if last > 0:
-                        current_price = last
-                    elif close > 0:
-                        current_price = close
-                except Exception as e:
-                    logger.warning(f"Could not get price for {pos.contract.symbol}: {e}")
+                        if last > 0:
+                            current_price = last
+                            price_source = "ibkr"
+                        elif close > 0:
+                            current_price = close
+                            price_source = "ibkr"
+                        else:
+                            # IBKR returned no valid price, likely subscription issue
+                            self._mark_market_data_failure(symbol, "no valid price")
+                    except Exception as e:
+                        error_msg = str(e)
+                        logger.warning(f"IBKR price failed for {symbol}: {error_msg}")
+                        self._mark_market_data_failure(symbol, error_msg)
+
+                # Try Yahoo Finance as fallback if IBKR didn't provide a valid price
+                if price_source == "avg_cost":
+                    try:
+                        yahoo_price = self.yahoo.get_stock_price(symbol)
+                        if yahoo_price and yahoo_price > 0:
+                            current_price = yahoo_price
+                            price_source = "yahoo"
+                    except Exception as e:
+                        logger.warning(f"Yahoo price also failed for {symbol}: {e}")
 
                 positions.append({
-                    "symbol": pos.contract.symbol,
+                    "symbol": symbol,
                     "quantity": int(pos.position),
                     "avg_price": avg_price,
                     "current_price": current_price
                 })
+
         return positions
 
     async def get_positions(self) -> list[Position]:
@@ -159,25 +219,43 @@ class IBKRClient:
 
         return [Position(**p) for p in pos_data]
 
-    async def _get_current_price(self, contract: Contract) -> float:
-        """Get current market price for a contract."""
+    async def _get_current_price(self, contract: Contract) -> Optional[float]:
+        """Get current market price for a contract with Yahoo fallback."""
+        symbol = contract.symbol
+
+        # Try IBKR first if no known market data issues
+        if self._should_try_ibkr_market_data(symbol):
+            try:
+                self.ib.qualifyContracts(contract)
+                ticker = self.ib.reqMktData(contract, snapshot=True)
+                self.ib.sleep(2)  # Wait for data
+                self.ib.cancelMktData(contract)
+
+                if ticker.last and ticker.last > 0:
+                    return ticker.last
+                elif ticker.close and ticker.close > 0:
+                    return ticker.close
+                else:
+                    # IBKR returned no valid price
+                    self._mark_market_data_failure(symbol, "no valid price")
+            except Exception as e:
+                error_msg = str(e)
+                logger.warning(f"IBKR price failed for {symbol}: {error_msg}")
+                self._mark_market_data_failure(symbol, error_msg)
+
+        # Try Yahoo Finance as fallback
         try:
-            self.ib.qualifyContracts(contract)
-            ticker = self.ib.reqMktData(contract, snapshot=True)
-            self.ib.sleep(2)  # Wait for data
-            self.ib.cancelMktData(contract)
-
-            if ticker.last and ticker.last > 0:
-                return ticker.last
-            elif ticker.close and ticker.close > 0:
-                return ticker.close
-            return 0.0
+            yahoo_price = self.yahoo.get_stock_price(symbol)
+            if yahoo_price and yahoo_price > 0:
+                logger.debug(f"Using Yahoo price for {symbol}: ${yahoo_price:.2f}")
+                return yahoo_price
         except Exception as e:
-            logger.warning(f"Could not get price for {contract.symbol}: {e}")
-            return 0.0
+            logger.warning(f"Yahoo price also failed for {symbol}: {e}")
 
-    async def get_stock_price(self, symbol: str) -> float:
-        """Get current price for a stock symbol."""
+        return None
+
+    async def get_stock_price(self, symbol: str) -> Optional[float]:
+        """Get current price for a stock symbol with Yahoo fallback."""
         contract = Stock(symbol, "SMART", "USD")
         return await self._get_current_price(contract)
 

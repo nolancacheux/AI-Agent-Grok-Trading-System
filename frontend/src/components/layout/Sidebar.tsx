@@ -2,7 +2,9 @@
 
 import { useAppStore, type ActivePanel } from '@/lib/store';
 import { Icons } from '@/components/ui/Icons';
+import { useHealth, useSchedulerStatus, useSetSchedulerMode, useTriggerAnalysis } from '@/hooks/useAgentState';
 import clsx from 'clsx';
+import { useState } from 'react';
 
 interface NavItemConfig {
   id: ActivePanel;
@@ -12,19 +14,53 @@ interface NavItemConfig {
 
 const mainNavItems: NavItemConfig[] = [
   { id: 'dashboard', label: 'Dashboard', icon: 'Dashboard' },
-  { id: 'analytics', label: 'Analytics', icon: 'Analytics' },
   { id: 'positions', label: 'Positions', icon: 'Positions' },
   { id: 'transactions', label: 'Transactions', icon: 'Transactions' },
+  { id: 'analytics', label: 'Analytics', icon: 'Analytics' },
 ];
 
-const agentNavItems: NavItemConfig[] = [
-  { id: 'neural', label: 'Neural Log', icon: 'Neural' },
-  { id: 'chat', label: 'Chat History', icon: 'Chat' },
-  { id: 'reflections', label: 'Reflections', icon: 'Reflections' },
+const systemNavItems: NavItemConfig[] = [
+  { id: 'settings', label: 'System Status', icon: 'Settings' },
 ];
 
 export function Sidebar() {
   const { activePanel, setActivePanel, sidebarCollapsed, toggleSidebar, theme, toggleTheme } = useAppStore();
+  const { data: health, isLoading: healthLoading } = useHealth();
+  const { data: scheduler, isLoading: schedulerLoading } = useSchedulerStatus();
+  const setModeMutation = useSetSchedulerMode();
+  const triggerMutation = useTriggerAnalysis();
+  const [analysisResult, setAnalysisResult] = useState<string | null>(null);
+
+  const handleModeChange = (mode: 'MANUAL' | 'AUTO') => {
+    setModeMutation.mutate(mode);
+  };
+
+  const handleTriggerAnalysis = () => {
+    setAnalysisResult(null);
+    triggerMutation.mutate(undefined, {
+      onSuccess: (data) => {
+        if (data.status === 'trade_executed' && data.trade) {
+          setAnalysisResult(`${data.trade.action.toUpperCase()} ${data.trade.quantity} ${data.trade.symbol}`);
+        } else if (data.decision) {
+          const decision = data.decision as { action?: string; symbol?: string };
+          setAnalysisResult(`${decision.action || 'KEEP'} ${decision.symbol || 'positions'}`);
+        } else {
+          setAnalysisResult('No trade');
+        }
+        setTimeout(() => setAnalysisResult(null), 5000);
+      },
+      onError: () => {
+        setAnalysisResult('Error');
+        setTimeout(() => setAnalysisResult(null), 3000);
+      },
+    });
+  };
+
+  const currentMode = scheduler?.mode || health?.scheduler_mode || 'AUTO';
+  const isSchedulerRunning = scheduler?.is_running ?? health?.scheduler_running ?? false;
+  const marketStatus = scheduler?.market_status || health?.market_status || 'CLOSED';
+  const ibkrConnected = health?.ibkr_connected ?? false;
+  const apiOnline = !healthLoading && health?.status === 'healthy';
 
   const NavItem = ({ item }: { item: NavItemConfig }) => {
     const Icon = Icons[item.icon];
@@ -47,6 +83,24 @@ export function Sidebar() {
     );
   };
 
+  const StatusDot = ({ connected, label }: { connected: boolean; label: string }) => (
+    <div className="flex items-center justify-between py-1">
+      <span className="text-xs text-[var(--color-text-muted)]">{label}</span>
+      <div className="flex items-center gap-2">
+        <div className={clsx(
+          'w-2 h-2 rounded-full',
+          connected ? 'bg-[var(--color-profit)]' : 'bg-[var(--color-loss)]'
+        )} />
+        <span className={clsx(
+          'text-xs font-medium',
+          connected ? 'text-[var(--color-profit)]' : 'text-[var(--color-loss)]'
+        )}>
+          {connected ? 'Online' : 'Offline'}
+        </span>
+      </div>
+    </div>
+  );
+
   return (
     <aside className={clsx('sidebar', sidebarCollapsed && 'collapsed')}>
       {/* Logo */}
@@ -64,6 +118,104 @@ export function Sidebar() {
         </div>
       </div>
 
+      {/* Status Section */}
+      {!sidebarCollapsed && (
+        <div className="px-4 py-3 border-b border-[var(--color-border-subtle)]">
+          <div className="text-label mb-2">STATUS</div>
+          <div className="space-y-1">
+            <StatusDot connected={ibkrConnected} label="IBKR" />
+            <StatusDot connected={apiOnline} label="API" />
+            <StatusDot connected={isSchedulerRunning} label="Scheduler" />
+          </div>
+          <div className="flex items-center justify-between py-1 mt-1">
+            <span className="text-xs text-[var(--color-text-muted)]">Market</span>
+            <span className={clsx(
+              'text-xs font-medium px-2 py-0.5 rounded',
+              marketStatus === 'OPEN' ? 'bg-[var(--color-profit)]/20 text-[var(--color-profit)]' :
+              marketStatus === 'PRE_MARKET' ? 'bg-[var(--color-warning)]/20 text-[var(--color-warning)]' :
+              marketStatus === 'AFTER_HOURS' ? 'bg-[var(--color-warning)]/20 text-[var(--color-warning)]' :
+              'bg-[var(--color-text-muted)]/20 text-[var(--color-text-muted)]'
+            )}>
+              {marketStatus.replace('_', ' ')}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Trading Controls */}
+      {!sidebarCollapsed && (
+        <div className="px-4 py-3 border-b border-[var(--color-border-subtle)]">
+          <div className="text-label mb-2">TRADING</div>
+
+          {/* Mode Toggle */}
+          <div className="mb-3">
+            <div className="text-xs text-[var(--color-text-muted)] mb-1.5">Mode</div>
+            <div className="flex rounded-lg bg-[var(--color-bg-secondary)] p-1">
+              <button
+                onClick={() => handleModeChange('AUTO')}
+                disabled={setModeMutation.isPending}
+                className={clsx(
+                  'flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all',
+                  currentMode === 'AUTO'
+                    ? 'bg-[var(--color-accent-primary)] text-white'
+                    : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                )}
+              >
+                AUTO
+              </button>
+              <button
+                onClick={() => handleModeChange('MANUAL')}
+                disabled={setModeMutation.isPending}
+                className={clsx(
+                  'flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all',
+                  currentMode === 'MANUAL'
+                    ? 'bg-[var(--color-accent-primary)] text-white'
+                    : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                )}
+              >
+                MANUAL
+              </button>
+            </div>
+          </div>
+
+          {/* Trigger Analysis Button */}
+          <button
+            onClick={handleTriggerAnalysis}
+            disabled={triggerMutation.isPending}
+            className={clsx(
+              'w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg font-medium text-sm transition-all',
+              triggerMutation.isPending
+                ? 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-muted)] cursor-wait'
+                : 'bg-[var(--color-accent-primary)]/10 text-[var(--color-accent-primary)] hover:bg-[var(--color-accent-primary)]/20'
+            )}
+          >
+            {triggerMutation.isPending ? (
+              <>
+                <Icons.Loading width={16} height={16} className="animate-spin" />
+                Analyzing...
+              </>
+            ) : (
+              <>
+                <Icons.Neural width={16} height={16} />
+                Trigger Analysis
+              </>
+            )}
+          </button>
+
+          {/* Analysis Result */}
+          {analysisResult && (
+            <div className={clsx(
+              'mt-2 px-3 py-2 rounded-lg text-xs font-medium text-center',
+              analysisResult === 'Error'
+                ? 'bg-[var(--color-loss)]/10 text-[var(--color-loss)]'
+                : 'bg-[var(--color-profit)]/10 text-[var(--color-profit)]'
+            )}>
+              {analysisResult}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Navigation */}
       <nav className="sidebar-nav">
         {/* Main Navigation */}
@@ -75,23 +227,12 @@ export function Sidebar() {
 
         <div className="nav-divider" />
 
-        {/* Agent Section */}
-        <div className={clsx(
-          'text-label px-3 py-2 transition-opacity duration-200',
-          sidebarCollapsed ? 'opacity-0' : 'opacity-100'
-        )}>
-          Agent Activity
-        </div>
+        {/* System */}
         <div className="space-y-1">
-          {agentNavItems.map((item) => (
+          {systemNavItems.map((item) => (
             <NavItem key={item.id} item={item} />
           ))}
         </div>
-
-        <div className="nav-divider" />
-
-        {/* Settings */}
-        <NavItem item={{ id: 'settings', label: 'Settings', icon: 'Settings' }} />
       </nav>
 
       {/* Footer */}

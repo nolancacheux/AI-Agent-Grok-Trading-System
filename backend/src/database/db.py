@@ -15,7 +15,9 @@ from src.database.models import (
     Reflection,
     PortfolioSnapshotRecord,
     SystemLog,
-    InitialValueRecord
+    InitialValueRecord,
+    SystemConfig,
+    Decision
 )
 
 
@@ -200,6 +202,25 @@ class Database:
         reflections = self.get_reflections(limit=1)
         return reflections[0] if reflections else None
 
+    def get_latest_reflection_time(self) -> Optional[datetime]:
+        """Get the end time of the last reflection period."""
+        reflection = self.get_latest_reflection()
+        if reflection:
+            return reflection.period_end
+        return None
+
+    def count_trades_since_last_reflection(self) -> int:
+        """Count trades since the last reflection period ended."""
+        last_reflection_time = self.get_latest_reflection_time()
+        session = self.get_session()
+        try:
+            query = session.query(TradeRecord)
+            if last_reflection_time:
+                query = query.filter(TradeRecord.timestamp > last_reflection_time)
+            return query.count()
+        finally:
+            session.close()
+
     # Portfolio Snapshots
     def save_portfolio_snapshot(
         self,
@@ -383,6 +404,108 @@ class Database:
                 "losing_trades": losing,
                 "win_rate": (winning / total_closed * 100) if total_closed > 0 else 0.0
             }
+        finally:
+            session.close()
+
+    # System Configuration
+    def get_config(self, key: str, default: Optional[str] = None) -> Optional[str]:
+        """Get a configuration value."""
+        session = self.get_session()
+        try:
+            config = session.query(SystemConfig).filter(
+                SystemConfig.key == key
+            ).first()
+            return config.value if config else default
+        finally:
+            session.close()
+
+    def set_config(self, key: str, value: str) -> SystemConfig:
+        """Set a configuration value."""
+        session = self.get_session()
+        try:
+            config = session.query(SystemConfig).filter(
+                SystemConfig.key == key
+            ).first()
+            if config:
+                config.value = value
+            else:
+                config = SystemConfig(key=key, value=value)
+                session.add(config)
+            session.commit()
+            session.refresh(config)
+            return config
+        finally:
+            session.close()
+
+    def get_scheduler_mode(self) -> str:
+        """Get the scheduler mode (AUTO or MANUAL). Defaults to AUTO."""
+        return self.get_config("scheduler_mode", "AUTO")
+
+    def set_scheduler_mode(self, mode: str) -> None:
+        """Set the scheduler mode."""
+        self.set_config("scheduler_mode", mode.upper())
+        logger.info(f"Scheduler mode set to: {mode.upper()}")
+
+    # Decisions (all Grok decisions including KEEP)
+    def save_decision(
+        self,
+        action: str,
+        reasoning: str,
+        symbol: Optional[str] = None,
+        quantity: Optional[int] = None,
+        context: Optional[dict] = None,
+        risk_score: Optional[int] = None,
+        session_id: Optional[str] = None,
+        executed: bool = False,
+        trade_id: Optional[int] = None
+    ) -> Decision:
+        """Save a trading decision (including KEEP decisions)."""
+        session = self.get_session()
+        try:
+            decision = Decision(
+                action=action.lower(),
+                symbol=symbol,
+                quantity=quantity,
+                reasoning=reasoning,
+                context=json.dumps(context) if context else None,
+                risk_score=risk_score,
+                trading_session_id=session_id,
+                executed=executed,
+                trade_id=trade_id
+            )
+            session.add(decision)
+            session.commit()
+            session.refresh(decision)
+            logger.info(f"Decision saved: {action.upper()} {symbol or 'N/A'}")
+            return decision
+        finally:
+            session.close()
+
+    def get_decisions(
+        self,
+        limit: int = 50,
+        action: Optional[str] = None,
+        symbol: Optional[str] = None
+    ) -> List[Decision]:
+        """Get decision history."""
+        session = self.get_session()
+        try:
+            query = session.query(Decision).order_by(desc(Decision.timestamp))
+            if action:
+                query = query.filter(Decision.action == action.lower())
+            if symbol:
+                query = query.filter(Decision.symbol == symbol)
+            return query.limit(limit).all()
+        finally:
+            session.close()
+
+    def get_decisions_by_session(self, session_id: str) -> List[Decision]:
+        """Get all decisions for a trading session."""
+        session = self.get_session()
+        try:
+            return session.query(Decision).filter(
+                Decision.trading_session_id == session_id
+            ).order_by(Decision.timestamp).all()
         finally:
             session.close()
 

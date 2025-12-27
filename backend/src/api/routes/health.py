@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from src.broker.ibkr_client import get_ibkr_client
+from src.scheduler import get_scheduler
 
 router = APIRouter()
 
@@ -7,9 +8,13 @@ router = APIRouter()
 @router.get("/health")
 async def health_check():
     ibkr = get_ibkr_client()
+    scheduler = get_scheduler()
     return {
         "status": "healthy",
-        "ibkr_connected": ibkr.connected
+        "ibkr_connected": ibkr.connected,
+        "scheduler_mode": scheduler.mode,
+        "scheduler_running": scheduler.is_running,
+        "market_status": scheduler.get_status().get("market_status", "UNKNOWN")
     }
 
 

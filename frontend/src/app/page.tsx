@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useEffect, useRef, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Sidebar,
   Header,
@@ -11,63 +12,95 @@ import {
   TransactionsTable,
   SystemLogs,
 } from '@/components';
-import { useAgentState, useTrades, useHealth, useTriggerAnalysis } from '@/hooks/useAgentState';
-import { executeTrade } from '@/lib/api';
+import StatusPage from '@/components/dashboard/StatusPage';
+import { useAgentState, useTrades, useHealth, useTriggerAnalysis, usePortfolioHistory, useSchedulerStatus } from '@/hooks/useAgentState';
+import { executeTrade, createWebSocket, type WebSocketMessage } from '@/lib/api';
 import { useAppStore } from '@/lib/store';
 import type { AgentState, Trade, PortfolioSnapshot, PortfolioBalance, Position } from '@/types';
 
-// Generate portfolio history from trades (simplified)
-function generatePortfolioHistory(
-  initialValue: number,
-  totalValue: number,
-  pnl: number
-): PortfolioSnapshot[] {
-  const now = new Date();
-  const points: PortfolioSnapshot[] = [];
-  const numPoints = 100;
-
-  for (let i = 0; i < numPoints; i++) {
-    const progress = i / (numPoints - 1);
-    const timestamp = new Date(now.getTime() - (numPoints - i) * 60 * 60 * 1000);
-
-    // Create a smooth curve from initial to current value with some noise
-    const baseValue = initialValue + (totalValue - initialValue) * progress;
-    const noise = (Math.sin(i * 0.5) * 0.02 + Math.random() * 0.01 - 0.005) * baseValue;
-    const value = baseValue + noise;
-
-    points.push({
-      timestamp: timestamp.toISOString(),
-      totalValue: value,
-      cash: value * 0.3,
-      positionsValue: value * 0.7,
-      pnl: value - initialValue,
-      pnlPercent: ((value - initialValue) / initialValue) * 100,
-    });
-  }
-
-  // Ensure last point matches current state
-  if (points.length > 0) {
-    points[points.length - 1] = {
-      timestamp: now.toISOString(),
-      totalValue,
-      cash: totalValue * 0.3,
-      positionsValue: totalValue * 0.7,
-      pnl,
-      pnlPercent: (pnl / initialValue) * 100,
-    };
-  }
-
-  return points;
-}
 
 export default function Dashboard() {
-  const { activePanel } = useAppStore();
+  const { activePanel, chartTimeRange } = useAppStore();
+  const queryClient = useQueryClient();
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const { data: health } = useHealth();
   const { data: agentData, isLoading: isAgentLoading } = useAgentState();
   const { data: tradesData, isLoading: isTradesLoading } = useTrades();
+  const { data: schedulerData } = useSchedulerStatus();
   const triggerAnalysis = useTriggerAnalysis();
 
+  // Get real trading mode from scheduler or health endpoint
+  const tradingMode = schedulerData?.mode || health?.scheduler_mode || 'AUTO';
+
+  // Map time range to hours
+  const hoursMap = { '1H': 1, '24H': 24, '7D': 168, 'ALL': 720 };
+  const hours = hoursMap[chartTimeRange] || 24;
+  const { data: historyData } = usePortfolioHistory(hours);
+
   const isConnected = health?.ibkr_connected ?? false;
+
+  // WebSocket message handler
+  const handleWebSocketMessage = useCallback((message: WebSocketMessage) => {
+    console.log('WebSocket message:', message.type);
+
+    switch (message.type) {
+      case 'agent_status':
+      case 'portfolio_update':
+        queryClient.invalidateQueries({ queryKey: ['agentState'] });
+        queryClient.invalidateQueries({ queryKey: ['portfolioHistory'] });
+        break;
+      case 'trade':
+        queryClient.invalidateQueries({ queryKey: ['trades'] });
+        queryClient.invalidateQueries({ queryKey: ['agentState'] });
+        break;
+      case 'chat_message':
+        queryClient.invalidateQueries({ queryKey: ['chatHistory'] });
+        break;
+      case 'reflection':
+        queryClient.invalidateQueries({ queryKey: ['reflections'] });
+        break;
+      case 'market_status':
+      case 'mode_change':
+        queryClient.invalidateQueries({ queryKey: ['health'] });
+        queryClient.invalidateQueries({ queryKey: ['schedulerStatus'] });
+        break;
+    }
+  }, [queryClient]);
+
+  // WebSocket connection with auto-reconnect
+  useEffect(() => {
+    const connectWebSocket = () => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) return;
+
+      wsRef.current = createWebSocket(
+        handleWebSocketMessage,
+        () => {
+          // On error, schedule reconnect
+          if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+          reconnectTimeoutRef.current = setTimeout(connectWebSocket, 5000);
+        },
+        (event) => {
+          // On close, schedule reconnect if not intentional
+          if (event.code !== 1000) {
+            if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+            reconnectTimeoutRef.current = setTimeout(connectWebSocket, 5000);
+          }
+        }
+      );
+    };
+
+    connectWebSocket();
+
+    return () => {
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      if (wsRef.current) {
+        wsRef.current.close(1000, 'Component unmounting');
+        wsRef.current = null;
+      }
+    };
+  }, [handleWebSocketMessage]);
 
   // Transform API data to our types
   const agentState: AgentState = useMemo(() => {
@@ -89,7 +122,7 @@ export default function Dashboard() {
         lastActionTime: '',
         tradesToday: 0,
         ibAccountId: '1',
-        tradingMode: 'MANUAL',
+        tradingMode,
         sessionId: '',
       };
     }
@@ -126,10 +159,10 @@ export default function Dashboard() {
       lastActionTime: agentData.last_action_time || '',
       tradesToday: agentData.trades_today || 0,
       ibAccountId: '1',
-      tradingMode: 'MANUAL',
+      tradingMode,
       sessionId: '',
     };
-  }, [agentData]);
+  }, [agentData, tradingMode]);
 
   // Transform trades
   const trades: Trade[] = useMemo(() => {
@@ -150,14 +183,20 @@ export default function Dashboard() {
     }));
   }, [tradesData]);
 
-  // Generate portfolio history
+  // Transform portfolio history from API (no fake data)
   const portfolioHistory = useMemo(() => {
-    return generatePortfolioHistory(
-      agentState.initialValue,
-      agentState.totalValue,
-      agentState.pnl
-    );
-  }, [agentState.initialValue, agentState.totalValue, agentState.pnl]);
+    if (historyData?.history && historyData.history.length > 0) {
+      return historyData.history.map((h: any) => ({
+        timestamp: h.timestamp,
+        totalValue: h.total_value,
+        cash: h.cash,
+        positionsValue: h.holdings_value,
+        pnl: h.pnl,
+        pnlPercent: h.pnl_percent,
+      }));
+    }
+    return [];
+  }, [historyData]);
 
   // Portfolio balance
   const balance: PortfolioBalance = useMemo(() => ({
@@ -228,13 +267,7 @@ export default function Dashboard() {
         );
 
       case 'settings':
-        return (
-          <div className="h-full flex items-center justify-center">
-            <div className="text-center">
-              <p className="text-[var(--color-text-muted)] mb-4">Theme and settings can be changed from the sidebar</p>
-            </div>
-          </div>
-        );
+        return <StatusPage />;
 
       case 'dashboard':
       default:

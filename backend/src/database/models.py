@@ -169,3 +169,60 @@ class InitialValueRecord(Base):
             "account_id": self.account_id,
             "is_active": self.is_active
         }
+
+
+class SystemConfig(Base):
+    """System configuration storage (scheduler mode, settings, etc.)."""
+    __tablename__ = "system_config"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    key = Column(String(50), unique=True, nullable=False, index=True)
+    value = Column(String(255), nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "key": self.key,
+            "value": self.value,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None
+        }
+
+
+class DecisionActionEnum(str, enum.Enum):
+    BUY = "buy"
+    SELL = "sell"
+    CLOSE = "close"
+    KEEP = "keep"
+
+
+class Decision(Base):
+    """All trading decisions made by Grok (including KEEP decisions)."""
+    __tablename__ = "decisions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp = Column(DateTime, default=datetime.utcnow, index=True)
+    action = Column(String(10), nullable=False)  # buy, sell, close, keep
+    symbol = Column(String(10), nullable=True)  # Can be null for KEEP with no specific symbol
+    quantity = Column(Integer, nullable=True)  # Null for KEEP
+    reasoning = Column(Text, nullable=False)  # Full Grok reasoning
+    context = Column(Text, nullable=True)  # JSON: market data, portfolio state
+    risk_score = Column(Integer, nullable=True)  # 0-100
+    trading_session_id = Column(String(50), nullable=True, index=True)
+    executed = Column(Boolean, default=False)  # Whether a trade was actually executed
+    trade_id = Column(Integer, nullable=True)  # Reference to trades table if executed
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "timestamp": self.timestamp.isoformat() if self.timestamp else None,
+            "action": self.action,
+            "symbol": self.symbol,
+            "quantity": self.quantity,
+            "reasoning": self.reasoning,
+            "context": self.context,
+            "risk_score": self.risk_score,
+            "trading_session_id": self.trading_session_id,
+            "executed": self.executed,
+            "trade_id": self.trade_id
+        }

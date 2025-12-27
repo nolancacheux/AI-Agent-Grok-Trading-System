@@ -230,6 +230,79 @@ async def trigger_trading():
     return {"message": "Trading loop triggered"}
 
 
+@app.post("/api/broker/disconnect")
+async def disconnect_broker(reconnect_minutes: int = 5):
+    """Disconnect from IBKR to allow mobile access. Auto-reconnects after specified minutes."""
+    import asyncio
+    ibkr = get_ibkr_client()
+    db = get_db()
+    manager = get_connection_manager()
+
+    if not ibkr.connected:
+        return {"status": "already_disconnected", "message": "Broker is already disconnected"}
+
+    await ibkr.disconnect()
+
+    db.log(
+        message=f"IBKR disconnected for mobile access. Will reconnect in {reconnect_minutes} minutes.",
+        component="broker",
+        level="INFO"
+    )
+
+    # Schedule auto-reconnect
+    async def auto_reconnect():
+        await asyncio.sleep(reconnect_minutes * 60)
+        if not ibkr.connected:
+            connected = await ibkr.connect()
+            if connected:
+                db.log(
+                    message="IBKR auto-reconnected after mobile access period",
+                    component="broker",
+                    level="INFO"
+                )
+                await manager.broadcast_log({
+                    "level": "INFO",
+                    "message": "Broker reconnected automatically",
+                    "component": "broker"
+                })
+
+    asyncio.create_task(auto_reconnect())
+
+    return {
+        "status": "disconnected",
+        "message": f"Broker disconnected. Will auto-reconnect in {reconnect_minutes} minutes.",
+        "reconnect_at": reconnect_minutes
+    }
+
+
+@app.post("/api/broker/reconnect")
+async def reconnect_broker():
+    """Manually reconnect to IBKR."""
+    ibkr = get_ibkr_client()
+    db = get_db()
+    manager = get_connection_manager()
+
+    if ibkr.connected:
+        return {"status": "already_connected", "message": "Broker is already connected"}
+
+    connected = await ibkr.connect()
+
+    if connected:
+        db.log(
+            message="IBKR manually reconnected",
+            component="broker",
+            level="INFO"
+        )
+        await manager.broadcast_log({
+            "level": "INFO",
+            "message": "Broker reconnected",
+            "component": "broker"
+        })
+        return {"status": "connected", "message": "Successfully reconnected to broker"}
+    else:
+        return {"status": "failed", "message": "Failed to reconnect to broker"}
+
+
 @app.get("/api/chat/history")
 async def get_chat_history(limit: int = 50):
     """Get chat history."""

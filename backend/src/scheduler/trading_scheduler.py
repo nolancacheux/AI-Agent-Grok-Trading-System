@@ -78,7 +78,12 @@ class TradingScheduler:
         self._snapshot_callback: Optional[Callable] = None
         self._reflection_callback: Optional[Callable] = None
         self._is_running = False
-        self._mode = "MANUAL"  # MANUAL or AUTO
+        self._trade_count_since_reflection = 0
+        # Load mode from database (defaults to AUTO)
+        self._mode = self.db.get_scheduler_mode()
+        logger.info(f"Scheduler mode loaded from database: {self._mode}")
+        # Initialize trade count from database
+        self._sync_trade_count()
 
     @property
     def is_running(self) -> bool:
@@ -89,9 +94,11 @@ class TradingScheduler:
         return self._mode
 
     def set_mode(self, mode: str):
-        """Set trading mode (MANUAL or AUTO)."""
+        """Set trading mode (MANUAL or AUTO) and persist to database."""
         if mode.upper() in ["MANUAL", "AUTO"]:
             self._mode = mode.upper()
+            # Persist to database
+            self.db.set_scheduler_mode(self._mode)
             self.db.log(
                 message=f"Trading mode set to {self._mode}",
                 component="scheduler",
@@ -110,6 +117,42 @@ class TradingScheduler:
     def set_reflection_callback(self, callback: Callable):
         """Set the callback for reflections."""
         self._reflection_callback = callback
+
+    def _sync_trade_count(self):
+        """Sync trade count from database on startup."""
+        try:
+            self._trade_count_since_reflection = self.db.count_trades_since_last_reflection()
+            logger.info(f"Trade count synced: {self._trade_count_since_reflection} trades since last reflection")
+        except Exception as e:
+            logger.warning(f"Could not sync trade count: {e}")
+            self._trade_count_since_reflection = 0
+
+    def increment_trade_count(self):
+        """Increment trade count and check if reflection threshold reached."""
+        self._trade_count_since_reflection += 1
+        threshold = self.settings.reflection_trades_threshold
+
+        logger.info(f"Trade count: {self._trade_count_since_reflection}/{threshold}")
+
+        if self._trade_count_since_reflection >= threshold:
+            logger.info(f"Trade threshold ({threshold}) reached - triggering reflection")
+            self.db.log(
+                message=f"Trade threshold reached ({self._trade_count_since_reflection} trades) - triggering reflection",
+                component="scheduler",
+                level="INFO"
+            )
+            self._trigger_trade_count_reflection()
+
+    def _trigger_trade_count_reflection(self):
+        """Trigger a reflection based on trade count threshold."""
+        if self._reflection_callback:
+            asyncio.create_task(self._execute_reflection())
+            # Reset count after triggering
+            self._trade_count_since_reflection = 0
+
+    def reset_trade_count(self):
+        """Reset trade count (called after reflection completes)."""
+        self._trade_count_since_reflection = 0
 
     async def _execute_trading_loop(self):
         """Execute the trading loop if conditions are met."""
@@ -185,10 +228,10 @@ class TradingScheduler:
             replace_existing=True
         )
 
-        # Portfolio snapshot - every 5 minutes
+        # Portfolio snapshot - every 1 minute for real-time updates
         self.scheduler.add_job(
             self._execute_snapshot,
-            IntervalTrigger(minutes=5),
+            IntervalTrigger(minutes=1),
             id="portfolio_snapshot",
             name="Portfolio Snapshot",
             replace_existing=True
@@ -266,7 +309,9 @@ class TradingScheduler:
             "market_status": get_market_status(),
             "is_market_open": is_market_open(),
             "next_jobs": self.get_next_run_times(),
-            "trading_interval_minutes": self.settings.trading_interval_minutes
+            "trading_interval_minutes": self.settings.trading_interval_minutes,
+            "trade_count_since_reflection": self._trade_count_since_reflection,
+            "reflection_trades_threshold": self.settings.reflection_trades_threshold
         }
 
 
