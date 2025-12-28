@@ -1,15 +1,11 @@
 'use client';
 
+import { useState } from 'react';
 import { useAppStore } from '@/lib/store';
 import { Icons } from '@/components/ui/Icons';
-import { useChatHistory, useReflections } from '@/hooks/useAgentState';
-import type { Trade } from '@/types';
+import { useChatHistory, useReflections, useDecisions } from '@/hooks/useAgentState';
 import clsx from 'clsx';
 import { format } from 'date-fns';
-
-interface RightPanelProps {
-  trades: Trade[];
-}
 
 function formatTime(timestamp: string): string {
   try {
@@ -27,50 +23,208 @@ function formatDate(timestamp: string): string {
   }
 }
 
-function NeuralActivity({ trades }: { trades: Trade[] }) {
-  // Generate neural logs from trades
-  const logs = trades.slice(0, 20).map((trade) => ({
-    id: trade.id,
-    timestamp: trade.timestamp,
-    type: trade.action === 'buy' || trade.action === 'sell' ? 'trade' : 'analysis',
-    summary: trade.reasoning?.slice(0, 60) + (trade.reasoning?.length > 60 ? '...' : '') || `${trade.action.toUpperCase()} ${trade.symbol}`,
-    status: trade.status === 'filled' ? 'complete' : 'pending',
-  }));
+function formatTimezone(timestamp: string, timezone: string): string {
+  try {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString('en-US', {
+      timeZone: timezone,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+  } catch {
+    return '--:--:--';
+  }
+}
+
+interface Decision {
+  id: number;
+  timestamp: string;
+  action: 'buy' | 'sell' | 'close' | 'keep';
+  symbol?: string;
+  quantity?: number;
+  reasoning: string;
+  context?: string;
+  risk_score?: number;
+  executed: boolean;
+  trade_id?: number;
+}
+
+function AnalysesActivity() {
+  const { data, isLoading } = useDecisions({ limit: 50 });
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="animate-spin w-5 h-5 border-2 border-zinc-600 border-t-white rounded-full" />
+      </div>
+    );
+  }
+
+  const decisions: Decision[] = data?.decisions || [];
+
+  const toggleExpand = (id: number) => {
+    setExpandedId(expandedId === id ? null : id);
+  };
+
+  const getActionIcon = (action: string, executed: boolean) => {
+    if (action === 'keep') return '⏸';
+    if (action === 'buy') return executed ? '↑' : '?';
+    if (action === 'sell' || action === 'close') return executed ? '↓' : '?';
+    return '⋯';
+  };
+
+  const getActionColor = (action: string) => {
+    if (action === 'keep') return 'bg-[var(--color-info-bg)] text-[var(--color-info)]';
+    if (action === 'buy') return 'bg-[var(--color-profit-bg)] text-[var(--color-profit)]';
+    if (action === 'sell' || action === 'close') return 'bg-[var(--color-loss-bg)] text-[var(--color-loss)]';
+    return 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-muted)]';
+  };
 
   return (
     <div className="space-y-2">
-      {logs.length === 0 ? (
+      {decisions.length === 0 ? (
         <div className="text-center py-8 text-[var(--color-text-muted)]">
-          <p>No neural activity yet</p>
-          <p className="text-xs mt-2 opacity-60">Activity will appear here when the bot analyzes and trades.</p>
+          <p>No analyses yet</p>
+          <p className="text-xs mt-2 opacity-60">Activity will appear here when the bot analyzes.</p>
         </div>
       ) : (
-        logs.map((log) => (
+        decisions.map((decision) => (
           <div
-            key={log.id}
-            className="p-3 rounded-lg bg-[var(--color-bg-tertiary)] hover:bg-[var(--color-bg-hover)] transition-colors animate-fadeIn"
+            key={decision.id}
+            className="rounded-lg bg-[var(--color-bg-tertiary)] hover:bg-[var(--color-bg-hover)] transition-colors animate-fadeIn overflow-hidden"
           >
-            <div className="flex items-start gap-3">
-              <div className={clsx(
-                'w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 text-sm',
-                log.status === 'complete' ? 'bg-[var(--color-profit-bg)] text-[var(--color-profit)]' : 'bg-[var(--color-info-bg)] text-[var(--color-info)]'
-              )}>
-                {log.status === 'complete' ? '✓' : '⋯'}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-[var(--color-text-primary)] leading-snug">
-                  {log.summary}
-                </p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs text-[var(--color-text-muted)]">
-                    {formatDate(log.timestamp)}
-                  </span>
-                  <span className="text-xs text-[var(--color-text-muted)]">
-                    {formatTime(log.timestamp)}
-                  </span>
+            <button
+              onClick={() => toggleExpand(decision.id)}
+              className="w-full p-3 text-left"
+            >
+              <div className="flex items-start gap-3">
+                <div className={clsx(
+                  'w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 text-sm font-bold',
+                  getActionColor(decision.action)
+                )}>
+                  {getActionIcon(decision.action, decision.executed)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className={clsx(
+                        'text-xs font-semibold uppercase px-1.5 py-0.5 rounded',
+                        decision.action === 'keep' ? 'bg-[var(--color-info)]/20 text-[var(--color-info)]' :
+                        decision.action === 'buy' ? 'bg-[var(--color-profit)]/20 text-[var(--color-profit)]' :
+                        'bg-[var(--color-loss)]/20 text-[var(--color-loss)]'
+                      )}>
+                        {decision.action}
+                      </span>
+                      {decision.symbol && (
+                        <span className="text-sm font-mono text-[var(--color-text-primary)]">
+                          {decision.symbol}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 text-xs text-[var(--color-accent-primary)] hover:text-[var(--color-accent-hover)]">
+                      <span className="hidden sm:inline">View Details</span>
+                      <Icons.ChevronLeft
+                        width={14}
+                        height={14}
+                        className={clsx(
+                          'transition-transform',
+                          expandedId === decision.id ? 'rotate-90' : '-rotate-90'
+                        )}
+                      />
+                    </div>
+                  </div>
+                  <p className="text-sm text-[var(--color-text-secondary)] leading-snug mt-1 line-clamp-2">
+                    {decision.reasoning.slice(0, 80)}{decision.reasoning.length > 80 ? '...' : ''}
+                  </p>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <span className="text-xs text-[var(--color-text-muted)]">
+                      {formatDate(decision.timestamp)}
+                    </span>
+                    <span className="text-xs text-[var(--color-text-muted)]">
+                      {formatTime(decision.timestamp)}
+                    </span>
+                    {decision.executed && (
+                      <span className="text-xs text-[var(--color-profit)] font-medium">
+                        ✓ Executed
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
+            </button>
+
+            {/* Expanded Details */}
+            {expandedId === decision.id && (
+              <div className="px-3 pb-3 border-t border-[var(--color-border-subtle)] mt-2 pt-3">
+                {/* Full Reasoning */}
+                <div className="mb-3">
+                  <p className="text-xs font-medium text-[var(--color-text-muted)] mb-1">Full Reasoning</p>
+                  <p className="text-sm text-[var(--color-text-primary)] leading-relaxed whitespace-pre-wrap">
+                    {decision.reasoning}
+                  </p>
+                </div>
+
+                {/* Action Details */}
+                {decision.action !== 'keep' && decision.symbol && (
+                  <div className="mb-3 p-2 rounded bg-[var(--color-bg-secondary)]">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className={clsx(
+                        'font-semibold uppercase',
+                        decision.action === 'buy' ? 'text-[var(--color-profit)]' :
+                        'text-[var(--color-loss)]'
+                      )}>
+                        {decision.action}
+                      </span>
+                      <span className="text-[var(--color-text-primary)] font-mono">
+                        {decision.symbol}
+                      </span>
+                    </div>
+                    {decision.quantity && (
+                      <div className="flex items-center justify-between text-xs mt-1 text-[var(--color-text-muted)]">
+                        <span>{decision.quantity} shares</span>
+                        <span>{decision.executed ? 'Executed' : 'Not executed'}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Risk Score */}
+                {decision.risk_score !== undefined && decision.risk_score !== null && (
+                  <div className="mb-3 p-2 rounded bg-[var(--color-bg-secondary)]">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-[var(--color-text-muted)]">Risk Score</span>
+                      <span className={clsx(
+                        'font-medium',
+                        decision.risk_score <= 30 ? 'text-[var(--color-profit)]' :
+                        decision.risk_score <= 60 ? 'text-[var(--color-warning)]' :
+                        'text-[var(--color-loss)]'
+                      )}>
+                        {decision.risk_score}%
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Timezone Times */}
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="p-2 rounded bg-[var(--color-bg-secondary)]">
+                    <span className="text-[var(--color-text-muted)] block">Paris</span>
+                    <span className="text-[var(--color-text-primary)] font-mono">
+                      {formatTimezone(decision.timestamp, 'Europe/Paris')}
+                    </span>
+                  </div>
+                  <div className="p-2 rounded bg-[var(--color-bg-secondary)]">
+                    <span className="text-[var(--color-text-muted)] block">New York</span>
+                    <span className="text-[var(--color-text-primary)] font-mono">
+                      {formatTimezone(decision.timestamp, 'America/New_York')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ))
       )}
@@ -129,6 +283,7 @@ function ChatHistory() {
 
 function Reflections() {
   const { data, isLoading } = useReflections(10);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
   if (isLoading) {
     return (
@@ -139,6 +294,10 @@ function Reflections() {
   }
 
   const reflections = data?.reflections || [];
+
+  const toggleExpand = (id: number) => {
+    setExpandedId(expandedId === id ? null : id);
+  };
 
   return (
     <div className="space-y-3">
@@ -151,43 +310,81 @@ function Reflections() {
         reflections.map((ref) => (
           <div
             key={ref.id}
-            className="p-4 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-tertiary)] animate-fadeIn"
+            className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-tertiary)] animate-fadeIn overflow-hidden"
           >
-            <div className="flex items-center gap-2 mb-2">
-              <Icons.Reflections width={14} height={14} className="text-[var(--color-info)]" />
-              <span className="text-xs font-medium text-[var(--color-text-muted)]">
-                {formatDate(ref.timestamp)} at {formatTime(ref.timestamp)}
-              </span>
-            </div>
-
-            {/* Stats */}
-            <div className="flex items-center gap-4 mb-3 text-xs">
-              <span className="text-[var(--color-text-muted)]">
-                {ref.trades_analyzed} trades analyzed
-              </span>
-              <span className={ref.total_pnl >= 0 ? 'text-profit' : 'text-loss'}>
-                {ref.total_pnl >= 0 ? '+' : ''}${ref.total_pnl.toFixed(2)} P&L
-              </span>
-              <span className="text-[var(--color-text-muted)]">
-                {(ref.win_rate * 100).toFixed(0)}% win rate
-              </span>
-            </div>
-
-            <p className="text-sm text-[var(--color-text-primary)] leading-relaxed mb-2">
-              {ref.content}
-            </p>
-
-            {ref.lessons_learned && (
-              <div className="mt-3 pt-3 border-t border-[var(--color-border-subtle)]">
-                <p className="text-xs font-medium text-amber-400 mb-1">Lessons Learned</p>
-                <p className="text-xs text-[var(--color-text-secondary)]">{ref.lessons_learned}</p>
+            {/* Collapsed Header */}
+            <button
+              onClick={() => toggleExpand(ref.id)}
+              className="w-full p-4 text-left"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Icons.Reflections width={14} height={14} className="text-[var(--color-info)]" />
+                  <span className="text-xs font-medium text-[var(--color-text-muted)]">
+                    {formatDate(ref.timestamp)}
+                  </span>
+                </div>
+                <Icons.ChevronLeft
+                  width={14}
+                  height={14}
+                  className={clsx(
+                    'text-[var(--color-text-muted)] transition-transform',
+                    expandedId === ref.id ? 'rotate-90' : '-rotate-90'
+                  )}
+                />
               </div>
-            )}
 
-            {ref.strategy_adjustments && (
-              <div className="mt-2">
-                <p className="text-xs font-medium text-cyan-400 mb-1">Strategy Adjustments</p>
-                <p className="text-xs text-[var(--color-text-secondary)]">{ref.strategy_adjustments}</p>
+              {/* Stats */}
+              <div className="flex items-center gap-4 text-xs">
+                <span className="text-[var(--color-text-muted)]">
+                  {ref.trades_analyzed} trades
+                </span>
+                <span className={ref.total_pnl >= 0 ? 'text-profit' : 'text-loss'}>
+                  {ref.total_pnl >= 0 ? '+' : ''}${ref.total_pnl.toFixed(2)}
+                </span>
+                <span className="text-[var(--color-text-muted)]">
+                  {(ref.win_rate * 100).toFixed(0)}% win
+                </span>
+              </div>
+            </button>
+
+            {/* Expanded Content */}
+            {expandedId === ref.id && (
+              <div className="px-4 pb-4 border-t border-[var(--color-border-subtle)] pt-3">
+                {/* Timezone Times */}
+                <div className="grid grid-cols-2 gap-2 text-xs mb-3">
+                  <div className="p-2 rounded bg-[var(--color-bg-secondary)]">
+                    <span className="text-[var(--color-text-muted)] block">Paris</span>
+                    <span className="text-[var(--color-text-primary)] font-mono">
+                      {formatTimezone(ref.timestamp, 'Europe/Paris')}
+                    </span>
+                  </div>
+                  <div className="p-2 rounded bg-[var(--color-bg-secondary)]">
+                    <span className="text-[var(--color-text-muted)] block">New York</span>
+                    <span className="text-[var(--color-text-primary)] font-mono">
+                      {formatTimezone(ref.timestamp, 'America/New_York')}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Full Content */}
+                <p className="text-sm text-[var(--color-text-primary)] leading-relaxed mb-2">
+                  {ref.content}
+                </p>
+
+                {ref.lessons_learned && (
+                  <div className="mt-3 pt-3 border-t border-[var(--color-border-subtle)]">
+                    <p className="text-xs font-medium text-amber-400 mb-1">Lessons Learned</p>
+                    <p className="text-xs text-[var(--color-text-secondary)]">{ref.lessons_learned}</p>
+                  </div>
+                )}
+
+                {ref.strategy_adjustments && (
+                  <div className="mt-2">
+                    <p className="text-xs font-medium text-cyan-400 mb-1">Strategy Adjustments</p>
+                    <p className="text-xs text-[var(--color-text-secondary)]">{ref.strategy_adjustments}</p>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -197,15 +394,16 @@ function Reflections() {
   );
 }
 
-export function RightPanel({ trades }: RightPanelProps) {
+export function RightPanel() {
   const { rightPanelOpen, rightPanelTab, setRightPanelTab, toggleRightPanel } = useAppStore();
+  const { data: decisionsData } = useDecisions({ limit: 50 });
   const { data: chatData } = useChatHistory(50);
   const { data: reflectionsData } = useReflections(10);
 
   const tabs = [
-    { id: 'neural' as const, label: 'Neural', count: trades.length },
+    { id: 'neural' as const, label: 'Analyses', count: decisionsData?.decisions?.length || 0 },
     { id: 'chat' as const, label: 'Chat', count: chatData?.messages?.length || 0 },
-    { id: 'reflections' as const, label: 'Reflect', count: reflectionsData?.reflections?.length || 0 },
+    { id: 'reflections' as const, label: 'Auto-Reflection', count: reflectionsData?.reflections?.length || 0 },
   ];
 
   return (
@@ -232,7 +430,7 @@ export function RightPanel({ trades }: RightPanelProps) {
       </div>
 
       <div className="right-panel-content">
-        {rightPanelTab === 'neural' && <NeuralActivity trades={trades} />}
+        {rightPanelTab === 'neural' && <AnalysesActivity />}
         {rightPanelTab === 'chat' && <ChatHistory />}
         {rightPanelTab === 'reflections' && <Reflections />}
       </div>

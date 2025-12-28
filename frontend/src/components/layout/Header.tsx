@@ -3,42 +3,12 @@
 import { useState, useEffect } from 'react';
 import { Icons } from '@/components/ui/Icons';
 import { useAppStore } from '@/lib/store';
-import type { AgentStatus, MarketStatus } from '@/types';
 import clsx from 'clsx';
 
 interface HeaderProps {
-  agentName: string;
-  agentStatus: AgentStatus;
-  ibAccountId: string;
   totalValue: number;
   pnl: number;
   pnlPercent: number;
-  isConnected: boolean;
-  tradingMode: 'MANUAL' | 'AUTO';
-}
-
-function getMarketStatus(): MarketStatus {
-  const now = new Date();
-  const nyTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
-  const hours = nyTime.getHours();
-  const minutes = nyTime.getMinutes();
-  const day = nyTime.getDay();
-
-  // Weekend
-  if (day === 0 || day === 6) return 'CLOSED';
-
-  const timeInMinutes = hours * 60 + minutes;
-
-  // Pre-market: 4:00 AM - 9:30 AM
-  if (timeInMinutes >= 240 && timeInMinutes < 570) return 'PRE_MARKET';
-
-  // Regular hours: 9:30 AM - 4:00 PM
-  if (timeInMinutes >= 570 && timeInMinutes < 960) return 'OPEN';
-
-  // After hours: 4:00 PM - 8:00 PM
-  if (timeInMinutes >= 960 && timeInMinutes < 1200) return 'AFTER_HOURS';
-
-  return 'CLOSED';
 }
 
 function formatCurrency(value: number): string {
@@ -85,69 +55,17 @@ function Clock({ timezone, label }: { timezone: string; label: string }) {
 }
 
 export function Header({
-  agentName,
-  agentStatus,
-  ibAccountId,
   totalValue,
   pnl,
   pnlPercent,
-  isConnected,
-  tradingMode,
 }: HeaderProps) {
   const { toggleRightPanel, rightPanelOpen } = useAppStore();
-  const [marketStatus, setMarketStatus] = useState<MarketStatus>('CLOSED');
-
-  useEffect(() => {
-    const updateMarketStatus = () => setMarketStatus(getMarketStatus());
-    updateMarketStatus();
-    const interval = setInterval(updateMarketStatus, 60000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const statusConfig = {
-    IDLE: { class: 'badge-idle', dot: 'idle' },
-    ANALYZING: { class: 'badge-analyzing', dot: 'analyzing' },
-    TRADING: { class: 'badge-trading', dot: 'trading' },
-    ERROR: { class: 'badge-error', dot: 'error' },
-  };
-
-  const marketStatusConfig = {
-    OPEN: { label: 'OPEN', class: 'text-profit' },
-    CLOSED: { label: 'CLOSED', class: 'text-[var(--color-text-muted)]' },
-    PRE_MARKET: { label: 'PRE-MKT', class: 'text-warning' },
-    AFTER_HOURS: { label: 'AFTER-HRS', class: 'text-info' },
-  };
 
   const isProfit = pnl >= 0;
 
   return (
     <header className="header">
       <div className="header-left">
-        {/* Agent Info */}
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center">
-              <Icons.Grok width={18} height={18} className="text-white" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-display font-semibold text-[var(--color-text-primary)]">
-                  {agentName}
-                </span>
-                <span className={clsx('badge', statusConfig[agentStatus].class)}>
-                  <span className={clsx('status-dot', statusConfig[agentStatus].dot)} />
-                  {agentStatus}
-                </span>
-              </div>
-              <span className="text-xs text-[var(--color-text-muted)]">
-                IB: {ibAccountId}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="header-divider" />
-
         {/* Total Value */}
         <div className="header-stat">
           <span className="header-stat-label">Total Value</span>
@@ -166,60 +84,6 @@ export function Header({
             <span className={clsx('text-sm font-mono', isProfit ? 'text-profit' : 'text-loss')}>
               {isProfit ? '+' : ''}{formatCurrency(pnl)}
             </span>
-          </div>
-        </div>
-
-        <div className="header-divider" />
-
-        {/* System Status */}
-        <div className="flex items-center gap-4">
-          {/* SYS Status with tooltip */}
-          <div className="relative group">
-            <div className="flex items-center gap-2 cursor-help">
-              <span className="text-label">SYS:</span>
-              <span className={clsx('status-dot', isConnected ? 'on' : 'off')} />
-              <span className={clsx('font-mono text-xs', isConnected ? 'text-profit' : 'text-[var(--color-text-muted)]')}>
-                {isConnected ? 'ON' : 'OFF'}
-              </span>
-            </div>
-            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-xs text-zinc-300 whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 shadow-lg">
-              {isConnected ? 'Connected to Interactive Brokers' : 'Not connected to broker - trades disabled'}
-              <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-zinc-800 border-l border-t border-zinc-700 rotate-45" />
-            </div>
-          </div>
-
-          {/* MKT Status with tooltip */}
-          <div className="relative group">
-            <div className="flex items-center gap-2 cursor-help">
-              <span className="text-label">MKT:</span>
-              <span className={clsx('font-mono text-xs', marketStatusConfig[marketStatus].class)}>
-                {marketStatusConfig[marketStatus].label}
-              </span>
-            </div>
-            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-xs text-zinc-300 whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 shadow-lg">
-              {marketStatus === 'OPEN' && 'NYSE/NASDAQ regular hours (9:30 AM - 4:00 PM ET)'}
-              {marketStatus === 'CLOSED' && 'Market is closed - no trading'}
-              {marketStatus === 'PRE_MARKET' && 'Pre-market session (4:00 AM - 9:30 AM ET)'}
-              {marketStatus === 'AFTER_HOURS' && 'After-hours session (4:00 PM - 8:00 PM ET)'}
-              <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-zinc-800 border-l border-t border-zinc-700 rotate-45" />
-            </div>
-          </div>
-
-          {/* MODE with tooltip */}
-          <div className="relative group">
-            <div className="flex items-center gap-2 cursor-help">
-              <span className="text-label">MODE:</span>
-              <span className={clsx(
-                'font-mono text-xs',
-                tradingMode === 'AUTO' ? 'text-profit' : 'text-info'
-              )}>
-                {tradingMode}
-              </span>
-            </div>
-            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-xs text-zinc-300 whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 shadow-lg">
-              {tradingMode === 'AUTO' ? 'Bot trades automatically every 30 min during market hours' : 'Bot only trades when you trigger analysis manually'}
-              <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-zinc-800 border-l border-t border-zinc-700 rotate-45" />
-            </div>
           </div>
         </div>
       </div>

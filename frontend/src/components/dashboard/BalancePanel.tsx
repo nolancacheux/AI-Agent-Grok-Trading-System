@@ -22,15 +22,26 @@ interface MetricRowProps {
   value: string;
   highlight?: boolean;
   variant?: 'profit' | 'loss' | 'neutral';
+  tooltip?: string;
 }
 
-function MetricRow({ label, value, highlight, variant = 'neutral' }: MetricRowProps) {
+function MetricRow({ label, value, highlight, variant = 'neutral', tooltip }: MetricRowProps) {
   return (
     <div className={clsx(
-      'flex items-center justify-between py-3 px-1',
+      'flex items-center justify-between py-3 px-1 group relative',
       highlight && 'border-t border-[var(--color-border-default)] pt-4 mt-1'
     )}>
-      <span className="text-sm text-[var(--color-text-secondary)]">{label}</span>
+      <span className={clsx(
+        'text-sm text-[var(--color-text-secondary)]',
+        tooltip && 'cursor-help border-b border-dotted border-[var(--color-text-muted)]'
+      )}>
+        {label}
+        {tooltip && (
+          <span className="absolute left-0 bottom-full mb-2 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-xs text-zinc-300 whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 shadow-lg max-w-xs">
+            {tooltip}
+          </span>
+        )}
+      </span>
       <span className={clsx(
         'font-mono font-semibold',
         highlight ? 'text-base' : 'text-sm',
@@ -45,7 +56,9 @@ function MetricRow({ label, value, highlight, variant = 'neutral' }: MetricRowPr
 }
 
 export function BalancePanel({ balance }: BalancePanelProps) {
-  const pnlVariant = balance.unrealizedPnl >= 0 ? 'profit' : 'loss';
+  const unrealizedPnlVariant: 'profit' | 'loss' = balance.unrealizedPnl >= 0 ? 'profit' : 'loss';
+  const totalPnl = balance.totalValue - balance.initialCapital;
+  const totalPnlVariant: 'profit' | 'loss' = totalPnl >= 0 ? 'profit' : 'loss';
 
   return (
     <div className="card h-full flex flex-col">
@@ -65,15 +78,24 @@ export function BalancePanel({ balance }: BalancePanelProps) {
           <MetricRow
             label="Holdings Value"
             value={formatCurrency(balance.holdingsValue)}
+            tooltip="Current market value of all open positions"
           />
           <MetricRow
             label="Cost Basis"
             value={formatCurrency(balance.costBasis)}
+            tooltip="Total amount paid for current holdings"
           />
           <MetricRow
             label="Unrealized P&L"
             value={(balance.unrealizedPnl >= 0 ? '+' : '') + formatCurrency(balance.unrealizedPnl)}
-            variant={pnlVariant}
+            variant={unrealizedPnlVariant}
+            tooltip="Paper gain/loss on current holdings (not yet sold)"
+          />
+          <MetricRow
+            label="Total P&L"
+            value={(totalPnl >= 0 ? '+' : '') + formatCurrency(totalPnl)}
+            variant={totalPnlVariant}
+            tooltip="Overall portfolio gain/loss since inception (Total Value - Initial Capital)"
           />
           <MetricRow
             label="Initial Capital"
@@ -83,6 +105,7 @@ export function BalancePanel({ balance }: BalancePanelProps) {
             label="Total Value"
             value={formatCurrency(balance.totalValue)}
             highlight
+            tooltip="Cash + Holdings Value"
           />
         </div>
       </div>

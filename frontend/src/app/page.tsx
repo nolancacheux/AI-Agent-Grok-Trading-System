@@ -10,7 +10,6 @@ import {
   PositionsTable,
   BalancePanel,
   TransactionsTable,
-  SystemLogs,
 } from '@/components';
 import StatusPage from '@/components/dashboard/StatusPage';
 import { useAgentState, useTrades, useHealth, useTriggerAnalysis, usePortfolioHistory, useSchedulerStatus } from '@/hooks/useAgentState';
@@ -246,17 +245,6 @@ export default function Dashboard() {
           </div>
         );
 
-      case 'analytics':
-        return (
-          <div className="h-full grid grid-rows-2 gap-4">
-            <PortfolioChart data={portfolioHistory} initialValue={agentState.initialValue} />
-            <div className="grid grid-cols-2 gap-4">
-              <BalancePanel balance={balance} />
-              <SystemLogs trades={trades} />
-            </div>
-          </div>
-        );
-
       case 'neural':
       case 'chat':
       case 'reflections':
@@ -284,7 +272,7 @@ export default function Dashboard() {
             </div>
 
             {/* Positions & Transactions */}
-            <div className="col-span-2 row-span-1">
+            <div className="col-span-3 row-span-1">
               <div className="grid grid-cols-2 gap-4 h-full">
                 <PositionsTable
                   positions={agentState.positions}
@@ -292,11 +280,6 @@ export default function Dashboard() {
                 />
                 <TransactionsTable trades={trades} maxItems={8} />
               </div>
-            </div>
-
-            {/* System Logs */}
-            <div className="col-span-1 row-span-1">
-              <SystemLogs trades={trades} maxItems={10} />
             </div>
           </div>
         );
@@ -308,14 +291,9 @@ export default function Dashboard() {
       <Sidebar />
 
       <Header
-        agentName={agentState.name}
-        agentStatus={agentState.status}
-        ibAccountId={agentState.ibAccountId}
         totalValue={agentState.totalValue}
         pnl={agentState.pnl}
         pnlPercent={agentState.pnlPercent}
-        isConnected={isConnected}
-        tradingMode={agentState.tradingMode}
       />
 
       <main className="main-content">
@@ -328,7 +306,7 @@ export default function Dashboard() {
         )}
       </main>
 
-      <RightPanel trades={trades} />
+      <RightPanel />
     </div>
   );
 }

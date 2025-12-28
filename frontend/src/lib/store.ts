@@ -4,7 +4,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 export type ThemeMode = 'dark' | 'light';
-export type ActivePanel = 'dashboard' | 'analytics' | 'positions' | 'transactions' | 'neural' | 'chat' | 'reflections' | 'settings';
+export type ActivePanel = 'dashboard' | 'positions' | 'transactions' | 'neural' | 'chat' | 'reflections' | 'settings';
 
 interface AppState {
   theme: ThemeMode;

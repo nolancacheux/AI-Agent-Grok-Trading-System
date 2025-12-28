@@ -113,6 +113,11 @@ export async function triggerAnalysis() {
       reasoning: string;
     };
     message?: string;
+    decision?: {
+      action?: string;
+      symbol?: string;
+      reasoning?: string;
+    };
   }>('/api/agent/analyze', { method: 'POST' });
 }
 

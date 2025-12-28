@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { getHealth, getSchedulerStatus, getAgentState, setSchedulerMode, triggerAnalysis, disconnectBroker, reconnectBroker } from '@/lib/api';
+import { useState, useEffect } from 'react';
+import { getHealth, getSchedulerStatus, getAgentState, setSchedulerMode, triggerAnalysis } from '@/lib/api';
 
 interface SchedulerStatus {
   is_running: boolean;
@@ -35,9 +35,6 @@ export default function StatusPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
-  const [isDisconnecting, setIsDisconnecting] = useState(false);
-  const [disconnectCountdown, setDisconnectCountdown] = useState<number | null>(null);
-  const countdownRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchStatus = async () => {
     try {
@@ -87,59 +84,6 @@ export default function StatusPage() {
     } finally {
       setIsAnalyzing(false);
     }
-  };
-
-  const handleDisconnect = async () => {
-    setIsDisconnecting(true);
-    try {
-      const result = await disconnectBroker(5);
-      if (result.status === 'disconnected') {
-        // Start countdown (5 minutes = 300 seconds)
-        setDisconnectCountdown(300);
-        countdownRef.current = setInterval(() => {
-          setDisconnectCountdown(prev => {
-            if (prev === null || prev <= 1) {
-              if (countdownRef.current) clearInterval(countdownRef.current);
-              return null;
-            }
-            return prev - 1;
-          });
-        }, 1000);
-      }
-      await fetchStatus();
-    } catch (error) {
-      console.error('Failed to disconnect:', error);
-    } finally {
-      setIsDisconnecting(false);
-    }
-  };
-
-  const handleReconnect = async () => {
-    if (countdownRef.current) {
-      clearInterval(countdownRef.current);
-      countdownRef.current = null;
-    }
-    setDisconnectCountdown(null);
-
-    try {
-      await reconnectBroker();
-      await fetchStatus();
-    } catch (error) {
-      console.error('Failed to reconnect:', error);
-    }
-  };
-
-  // Cleanup countdown on unmount
-  useEffect(() => {
-    return () => {
-      if (countdownRef.current) clearInterval(countdownRef.current);
-    };
-  }, []);
-
-  const formatCountdown = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   const formatNextRun = (isoString: string | null) => {
@@ -212,46 +156,6 @@ export default function StatusPage() {
                   {schedulerStatus?.is_running ? 'Running' : 'Stopped'}
                 </span>
               </div>
-            </div>
-
-            {/* Mobile Access Section */}
-            <div className="pt-3 mt-3 border-t border-zinc-800">
-              <p className="text-xs text-zinc-500 mb-3">
-                IBKR allows only one connection at a time. To use IBKR mobile, disconnect the bot temporarily.
-              </p>
-              {disconnectCountdown !== null ? (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between bg-amber-900/20 border border-amber-800 rounded-lg px-3 py-2">
-                    <span className="text-amber-400 text-sm">Auto-reconnect in:</span>
-                    <span className="text-amber-400 font-mono text-lg">{formatCountdown(disconnectCountdown)}</span>
-                  </div>
-                  <button
-                    onClick={handleReconnect}
-                    className="w-full px-4 py-2 rounded-lg text-sm font-medium bg-emerald-600 hover:bg-emerald-500 text-white transition-all"
-                  >
-                    Reconnect Now
-                  </button>
-                </div>
-              ) : isConnected ? (
-                <button
-                  onClick={handleDisconnect}
-                  disabled={isDisconnecting}
-                  className={`w-full px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                    isDisconnecting
-                      ? 'bg-zinc-700 text-zinc-400 cursor-not-allowed'
-                      : 'bg-amber-600 hover:bg-amber-500 text-white'
-                  }`}
-                >
-                  {isDisconnecting ? 'Disconnecting...' : 'Disconnect for Mobile (5 min)'}
-                </button>
-              ) : (
-                <button
-                  onClick={handleReconnect}
-                  className="w-full px-4 py-2 rounded-lg text-sm font-medium bg-emerald-600 hover:bg-emerald-500 text-white transition-all"
-                >
-                  Reconnect to Broker
-                </button>
-              )}
             </div>
           </div>
         </div>

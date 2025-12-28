@@ -1,4 +1,4 @@
-# Grok Trading Bot
+# xAI Trading by Nolan CACHEUX
 
 An autonomous AI-powered trading system using xAI's Grok model for biotech stock analysis and execution via Interactive Brokers.
 
@@ -6,7 +6,7 @@ An autonomous AI-powered trading system using xAI's Grok model for biotech stock
 
 ## Overview
 
-Grok Trading is a complete trading infrastructure that combines:
+xAI Trading is a complete trading infrastructure that combines:
 
 - **AI Analysis Engine**: Uses xAI Grok for market analysis, stock screening, and trade decisions
 - **Interactive Brokers Integration**: Real order execution with live market data
@@ -20,7 +20,7 @@ Grok Trading is a complete trading infrastructure that combines:
 │                        Frontend (Next.js 14)                    │
 │  ┌─────────────┐  ┌──────────────┐  ┌────────────────────────┐ │
 │  │   Sidebar   │  │    Header    │  │     Right Panel        │ │
-│  │  Navigation │  │ Status/Clock │  │  Neural/Chat/Reflect   │ │
+│  │ Status/Auto │  │ Value/Clocks │  │ Decisions/Chat/Reflect │ │
 │  └─────────────┘  └──────────────┘  └────────────────────────┘ │
 │  ┌──────────────────────────────────────────────────────────┐  │
 │  │                   Main Dashboard                          │  │
@@ -54,11 +54,12 @@ Grok Trading is a complete trading infrastructure that combines:
 ### Dashboard
 - **Portfolio Value History**: Interactive chart with $ / % toggle, time range selectors (1H/24H/7D/ALL)
 - **Active Holdings**: Real-time positions with P&L tracking
-- **Portfolio Balance**: Cash, holdings, cost basis, unrealized P&L
+- **Portfolio Balance**: Cash, holdings, cost basis, unrealized P&L, total P&L with tooltips
 - **Transactions**: Complete trade history with risk indicators
-- **System Logs**: Live activity feed from the AI agent
-- **Dual Timezone**: Paris & New York clocks
+- **Sidebar**: Branding, status indicators (IBKR, API, Scheduler, Market), auto trading toggle
+- **Header**: Portfolio value, P&L, Paris & New York clocks
 - **Theme Toggle**: Apple-style dark/light mode
+- **Right Panel**: All decisions (BUY/SELL/KEEP) with View Details, chat history, auto-reflections
 
 ### AI Agent
 - **Market Analysis**: Grok-powered analysis of biotech catalysts
@@ -155,7 +156,7 @@ LOG_LEVEL=DEBUG
 ```bash
 # Terminal 1: Backend
 cd backend
-python -m uvicorn src.main:app --reload --port 8000
+python -m uvicorn src.api.main:app --reload --port 8000
 
 # Terminal 2: Frontend
 cd frontend
@@ -216,6 +217,7 @@ grok_trading/
 | `/health` | GET | Service health + IBKR connection |
 | `/api/agent/status` | GET | Agent state, positions, P&L |
 | `/api/agent/trades` | GET | Trade history |
+| `/api/agent/decisions` | GET | All decisions (BUY/SELL/KEEP) |
 | `/api/agent/analyze` | POST | Trigger AI analysis |
 | `/api/portfolio` | GET | Full portfolio state |
 | `/api/portfolio/positions` | GET | Current positions |
@@ -286,4 +288,4 @@ This software is for educational purposes only. Trading involves substantial ris
 
 ---
 
-Built with xAI Grok + Interactive Brokers
+Built by Nolan CACHEUX with xAI Grok + Interactive Brokers

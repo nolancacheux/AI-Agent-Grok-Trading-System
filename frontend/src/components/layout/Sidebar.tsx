@@ -16,7 +16,6 @@ const mainNavItems: NavItemConfig[] = [
   { id: 'dashboard', label: 'Dashboard', icon: 'Dashboard' },
   { id: 'positions', label: 'Positions', icon: 'Positions' },
   { id: 'transactions', label: 'Transactions', icon: 'Transactions' },
-  { id: 'analytics', label: 'Analytics', icon: 'Analytics' },
 ];
 
 const systemNavItems: NavItemConfig[] = [
@@ -103,17 +102,17 @@ export function Sidebar() {
 
   return (
     <aside className={clsx('sidebar', sidebarCollapsed && 'collapsed')}>
-      {/* Logo */}
+      {/* Branding */}
       <div className="sidebar-header">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center">
-            <Icons.Grok width={20} height={20} className="text-white" />
-          </div>
-          <span className={clsx(
-            'font-display font-semibold text-base tracking-tight transition-opacity duration-200',
-            sidebarCollapsed ? 'opacity-0 w-0' : 'opacity-100'
-          )}>
-            Grok Trading
+        <div className={clsx(
+          'transition-opacity duration-200',
+          sidebarCollapsed ? 'opacity-0 w-0' : 'opacity-100'
+        )}>
+          <span className="font-display font-semibold text-base tracking-tight text-[var(--color-text-primary)]">
+            xAI Trading
+          </span>
+          <span className="text-xs text-[var(--color-text-muted)] block">
+            by Nolan CACHEUX
           </span>
         </div>
       </div>
@@ -147,52 +146,59 @@ export function Sidebar() {
         <div className="px-4 py-3 border-b border-[var(--color-border-subtle)]">
           <div className="text-label mb-2">TRADING</div>
 
-          {/* Mode Toggle */}
+          {/* Auto Trading Toggle */}
           <div className="mb-3">
-            <div className="text-xs text-[var(--color-text-muted)] mb-1.5">Mode</div>
-            <div className="flex rounded-lg bg-[var(--color-bg-secondary)] p-1">
-              <button
-                onClick={() => handleModeChange('AUTO')}
-                disabled={setModeMutation.isPending}
-                className={clsx(
-                  'flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all',
-                  currentMode === 'AUTO'
-                    ? 'bg-[var(--color-accent-primary)] text-white'
-                    : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
-                )}
-              >
-                AUTO
-              </button>
-              <button
-                onClick={() => handleModeChange('MANUAL')}
-                disabled={setModeMutation.isPending}
-                className={clsx(
-                  'flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all',
-                  currentMode === 'MANUAL'
-                    ? 'bg-[var(--color-accent-primary)] text-white'
-                    : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
-                )}
-              >
-                MANUAL
-              </button>
-            </div>
+            <button
+              onClick={() => handleModeChange(currentMode === 'AUTO' ? 'MANUAL' : 'AUTO')}
+              disabled={setModeMutation.isPending}
+              className={clsx(
+                'w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all',
+                currentMode === 'AUTO'
+                  ? 'bg-[var(--color-profit)]/15 border border-[var(--color-profit)]/30'
+                  : 'bg-[var(--color-bg-tertiary)] border border-[var(--color-border-subtle)]'
+              )}
+            >
+              <span className={clsx(
+                'text-sm font-medium',
+                currentMode === 'AUTO' ? 'text-[var(--color-profit)]' : 'text-[var(--color-text-secondary)]'
+              )}>
+                Auto Trading
+              </span>
+              <div className={clsx(
+                'w-10 h-5 rounded-full transition-all relative',
+                currentMode === 'AUTO' ? 'bg-[var(--color-profit)]' : 'bg-[var(--color-bg-secondary)]'
+              )}>
+                <div className={clsx(
+                  'absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all',
+                  currentMode === 'AUTO' ? 'left-5' : 'left-0.5'
+                )} />
+              </div>
+            </button>
           </div>
 
           {/* Trigger Analysis Button */}
           <button
             onClick={handleTriggerAnalysis}
-            disabled={triggerMutation.isPending}
+            disabled={triggerMutation.isPending || marketStatus !== 'OPEN'}
+            title={marketStatus !== 'OPEN' ? 'Analysis only available during market hours' : undefined}
             className={clsx(
               'w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg font-medium text-sm transition-all',
-              triggerMutation.isPending
-                ? 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-muted)] cursor-wait'
-                : 'bg-[var(--color-accent-primary)]/10 text-[var(--color-accent-primary)] hover:bg-[var(--color-accent-primary)]/20'
+              marketStatus !== 'OPEN'
+                ? 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-muted)] cursor-not-allowed'
+                : triggerMutation.isPending
+                  ? 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-muted)] cursor-wait'
+                  : 'bg-[var(--color-accent-primary)]/10 text-[var(--color-accent-primary)] hover:bg-[var(--color-accent-primary)]/20'
             )}
           >
             {triggerMutation.isPending ? (
               <>
-                <Icons.Loading width={16} height={16} className="animate-spin" />
+                <Icons.Loader width={16} height={16} className="animate-spin" />
                 Analyzing...
+              </>
+            ) : marketStatus !== 'OPEN' ? (
+              <>
+                <Icons.Neural width={16} height={16} />
+                Market Closed
               </>
             ) : (
               <>
