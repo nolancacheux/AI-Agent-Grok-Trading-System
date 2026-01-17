@@ -1,5 +1,3 @@
-from datetime import datetime, timedelta
-from typing import Optional
 import yfinance as yf
 from loguru import logger
 
@@ -7,23 +5,20 @@ from loguru import logger
 class YahooFinanceClient:
     """Market data provider using Yahoo Finance."""
 
-    def get_stock_price(self, symbol: str) -> Optional[float]:
+    def get_stock_price(self, symbol: str) -> float | None:
         """Get current stock price."""
         try:
             ticker = yf.Ticker(symbol)
             data = ticker.history(period="1d")
             if not data.empty:
-                return float(data['Close'].iloc[-1])
+                return float(data["Close"].iloc[-1])
             return None
         except Exception as e:
             logger.error(f"Failed to get price for {symbol}: {e}")
             return None
 
     def get_price_history(
-        self,
-        symbol: str,
-        period: str = "1mo",
-        interval: str = "1d"
+        self, symbol: str, period: str = "1mo", interval: str = "1d"
     ) -> list[dict]:
         """Get historical price data.
 
@@ -41,14 +36,16 @@ class YahooFinanceClient:
 
             history = []
             for idx, row in data.iterrows():
-                history.append({
-                    "date": idx.strftime("%Y-%m-%d %H:%M"),
-                    "open": float(row['Open']),
-                    "high": float(row['High']),
-                    "low": float(row['Low']),
-                    "close": float(row['Close']),
-                    "volume": int(row['Volume'])
-                })
+                history.append(
+                    {
+                        "date": idx.strftime("%Y-%m-%d %H:%M"),
+                        "open": float(row["Open"]),
+                        "high": float(row["High"]),
+                        "low": float(row["Low"]),
+                        "close": float(row["Close"]),
+                        "volume": int(row["Volume"]),
+                    }
+                )
 
             return history
 
@@ -72,7 +69,7 @@ class YahooFinanceClient:
                 "dividend_yield": info.get("dividendYield", 0),
                 "52_week_high": info.get("fiftyTwoWeekHigh", 0),
                 "52_week_low": info.get("fiftyTwoWeekLow", 0),
-                "avg_volume": info.get("averageVolume", 0)
+                "avg_volume": info.get("averageVolume", 0),
             }
 
         except Exception as e:
@@ -82,10 +79,7 @@ class YahooFinanceClient:
     def get_trending_tickers(self) -> list[str]:
         """Get trending stock tickers."""
         # Common actively traded stocks
-        return [
-            "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA",
-            "META", "TSLA", "AMD", "NFLX", "INTC"
-        ]
+        return ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "AMD", "NFLX", "INTC"]
 
     def search_stocks(self, query: str) -> list[dict]:
         """Search for stocks by query."""
@@ -101,7 +95,7 @@ class YahooFinanceClient:
                 "tesla": "TSLA",
                 "netflix": "NFLX",
                 "amd": "AMD",
-                "intel": "INTC"
+                "intel": "INTC",
             }
 
             query_lower = query.lower()
@@ -120,7 +114,7 @@ class YahooFinanceClient:
 
 
 # Singleton
-_yahoo_client: Optional[YahooFinanceClient] = None
+_yahoo_client: YahooFinanceClient | None = None
 
 
 def get_yahoo_client() -> YahooFinanceClient:

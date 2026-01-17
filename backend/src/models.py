@@ -1,7 +1,7 @@
-from pydantic import BaseModel, Field
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+
+from pydantic import BaseModel, Field
 
 
 class AgentStatus(str, Enum):
@@ -56,14 +56,14 @@ class TradeOrder(BaseModel):
     action: TradeAction
     order_type: OrderType = OrderType.MARKET
     quantity: int
-    limit_price: Optional[float] = None
+    limit_price: float | None = None
     reasoning: str = ""
     evaluated_risk: int = Field(default=50, ge=0, le=100)
 
 
 class TradeResult(BaseModel):
     success: bool
-    order_id: Optional[str] = None
+    order_id: str | None = None
     symbol: str
     action: TradeAction
     quantity: int
@@ -72,7 +72,7 @@ class TradeResult(BaseModel):
     fee: float = 0.0
     cash_after: float = 0.0
     timestamp: datetime = Field(default_factory=datetime.utcnow)
-    error: Optional[str] = None
+    error: str | None = None
 
 
 class Trade(BaseModel):
@@ -97,8 +97,8 @@ class AgentState(BaseModel):
     pnl: float = 0.0
     pnl_percent: float = 0.0
     positions: list[Position] = []
-    last_action: Optional[str] = None
-    last_action_time: Optional[datetime] = None
+    last_action: str | None = None
+    last_action_time: datetime | None = None
     trades_today: int = 0
 
 
@@ -110,8 +110,8 @@ class DailyStats(BaseModel):
     win_rate: float = 0.0
     total_pnl: float = 0.0
     total_fees: float = 0.0
-    best_trade: Optional[Trade] = None
-    worst_trade: Optional[Trade] = None
+    best_trade: Trade | None = None
+    worst_trade: Trade | None = None
 
 
 class PortfolioSnapshot(BaseModel):

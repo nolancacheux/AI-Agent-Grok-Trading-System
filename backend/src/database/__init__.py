@@ -1,12 +1,12 @@
 """Database module for persistence."""
 
-from src.database.db import get_db, init_db, Database
+from src.database.db import Database, get_db, init_db
 from src.database.models import (
-    TradeRecord,
     ChatMessage,
-    Reflection,
     PortfolioSnapshotRecord,
-    SystemLog
+    Reflection,
+    SystemLog,
+    TradeRecord,
 )
 
 __all__ = [
@@ -17,5 +17,5 @@ __all__ = [
     "ChatMessage",
     "Reflection",
     "PortfolioSnapshotRecord",
-    "SystemLog"
+    "SystemLog",
 ]

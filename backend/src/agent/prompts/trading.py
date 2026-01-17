@@ -1,7 +1,6 @@
 """Trading system prompts for Grok AI."""
 
 from datetime import datetime
-from typing import Optional
 
 TRADING_SYSTEM_PROMPT = """You are Grok, an autonomous AI trading agent created by xAI. You manage a stock trading portfolio on Interactive Brokers.
 
@@ -128,7 +127,7 @@ def get_trading_prompt(
     recent_trades: list,
     market_data: str,
     market_status: str = "UNKNOWN",
-    trading_mode: str = "AUTO"
+    trading_mode: str = "AUTO",
 ) -> str:
     """Generate a trading analysis prompt with current state."""
 
@@ -136,8 +135,8 @@ def get_trading_prompt(
     if positions:
         positions_lines = []
         for p in positions:
-            pnl_str = f"${p.get('pnl', 0):+,.2f}" if 'pnl' in p else "N/A"
-            pnl_pct = f"({p.get('pnl_percent', 0):+.2f}%)" if 'pnl_percent' in p else ""
+            pnl_str = f"${p.get('pnl', 0):+,.2f}" if "pnl" in p else "N/A"
+            pnl_pct = f"({p.get('pnl_percent', 0):+.2f}%)" if "pnl_percent" in p else ""
             positions_lines.append(
                 f"- {p['symbol']}: {p['quantity']} shares @ ${p.get('avg_price', 0):.2f} "
                 f"(current: ${p.get('current_price', 0):.2f}) | P&L: {pnl_str} {pnl_pct}"
@@ -150,9 +149,9 @@ def get_trading_prompt(
     if recent_trades:
         trades_lines = []
         for t in recent_trades[-5:]:
-            timestamp = t.get('timestamp', '')
-            if hasattr(timestamp, 'strftime'):
-                timestamp = timestamp.strftime('%H:%M')
+            timestamp = t.get("timestamp", "")
+            if hasattr(timestamp, "strftime"):
+                timestamp = timestamp.strftime("%H:%M")
             trades_lines.append(
                 f"- {timestamp}: {t.get('action', '').upper()} {t.get('quantity', 0)} "
                 f"{t.get('symbol', '')} @ ${t.get('price', 0):.2f}"
@@ -172,7 +171,7 @@ def get_trading_prompt(
         pnl_percent=pnl_percent,
         positions_summary=positions_summary,
         recent_trades=recent_trades_str,
-        market_data=market_data or "No market data available"
+        market_data=market_data or "No market data available",
     )
 
 

@@ -216,7 +216,7 @@ export default function StatusPage() {
             <div className="flex items-start gap-2">
               <span className="text-blue-400 text-lg">i</span>
               <div>
-                <p className="text-sm text-zinc-300"><strong>MANUAL:</strong> The bot will not trade automatically. You must click "Trigger Analysis" to run an analysis and potentially execute a trade.</p>
+                <p className="text-sm text-zinc-300"><strong>MANUAL:</strong> The bot will not trade automatically. You must click &quot;Trigger Analysis&quot; to run an analysis and potentially execute a trade.</p>
               </div>
             </div>
             <div className="flex items-start gap-2">
@@ -275,7 +275,7 @@ export default function StatusPage() {
             <div>
               <p className="text-zinc-300 font-medium">Market Data: Yahoo Finance (FREE)</p>
               <p className="text-sm text-zinc-500 mt-1">
-                Paper trading accounts don't include IBKR market data. Yahoo Finance provides real-time stock prices for free and is automatically used as the data source.
+                Paper trading accounts don&apos;t include IBKR market data. Yahoo Finance provides real-time stock prices for free and is automatically used as the data source.
               </p>
             </div>
           </div>
@@ -285,7 +285,7 @@ export default function StatusPage() {
             <div>
               <p className="text-zinc-300 font-medium">News & Search: Grok Live Search</p>
               <p className="text-sm text-zinc-500 mt-1">
-                Real-time news and information from web, X/Twitter, and news sites. Powered by xAI's Grok API with live search capabilities.
+                Real-time news and information from web, X/Twitter, and news sites. Powered by xAI&apos;s Grok API with live search capabilities.
               </p>
             </div>
           </div>

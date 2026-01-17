@@ -1,18 +1,13 @@
-import asyncio
-import json
 from datetime import datetime
-from typing import Optional
+
 from loguru import logger
 
-from src.config import get_settings
-from src.models import (
-    AgentState, AgentStatus, TradeOrder, TradeAction,
-    OrderType, Trade, Position
-)
-from src.broker.ibkr_client import get_ibkr_client
 from src.agent.grok_client import get_grok_client
-from src.market_data.yahoo_finance import get_yahoo_client
+from src.broker.ibkr_client import get_ibkr_client
+from src.config import get_settings
 from src.database import get_db
+from src.market_data.yahoo_finance import get_yahoo_client
+from src.models import AgentState, AgentStatus, Position, Trade, TradeAction, TradeOrder
 
 
 class TradingAgent:
@@ -27,10 +22,10 @@ class TradingAgent:
 
         self._status = AgentStatus.IDLE
         self._trades: list[Trade] = []
-        self._initial_value: Optional[float] = None
-        self._last_action: Optional[str] = None
-        self._last_action_time: Optional[datetime] = None
-        self._last_decision: Optional[dict] = None  # Store last decision for display
+        self._initial_value: float | None = None
+        self._last_action: str | None = None
+        self._last_action_time: datetime | None = None
+        self._last_decision: dict | None = None  # Store last decision for display
 
     @property
     def status(self) -> AgentStatus:
@@ -62,14 +57,16 @@ class TradingAgent:
                 positions=positions,
                 last_action=self._last_action,
                 last_action_time=self._last_action_time,
-                trades_today=len([t for t in self._trades if t.timestamp.date() == datetime.now().date()])
+                trades_today=len(
+                    [t for t in self._trades if t.timestamp.date() == datetime.now().date()]
+                ),
             )
 
         except Exception as e:
             logger.error(f"Failed to get agent state: {e}")
             return AgentState(status=AgentStatus.ERROR)
 
-    async def analyze_and_trade(self) -> Optional[Trade]:
+    async def analyze_and_trade(self) -> Trade | None:
         """Main trading loop - analyze market and execute trades."""
         self._status = AgentStatus.ANALYZING
         logger.info("Starting market analysis...")
@@ -104,15 +101,17 @@ class TradingAgent:
                         "current_price": price,
                         "history": history[-20:],  # Last 20 hours
                         "change_1d": self._calculate_change(history, 24),
-                        "change_5d": self._calculate_change(history, len(history))
+                        "change_5d": self._calculate_change(history, len(history)),
                     }
 
             # Format market data for Grok
-            market_summary = "\n".join([
-                f"  {sym}: ${data['current_price']:.2f} "
-                f"(1D: {data['change_1d']:+.2f}%, 5D: {data['change_5d']:+.2f}%)"
-                for sym, data in market_data.items()
-            ])
+            market_summary = "\n".join(
+                [
+                    f"  {sym}: ${data['current_price']:.2f} "
+                    f"(1D: {data['change_1d']:+.2f}%, 5D: {data['change_5d']:+.2f}%)"
+                    for sym, data in market_data.items()
+                ]
+            )
 
             # Ask Grok for a trading decision
             self._status = AgentStatus.TRADING
@@ -128,10 +127,10 @@ class TradingAgent:
                             "quantity": p.quantity,
                             "avg_price": p.avg_price,
                             "current_price": p.current_price,
-                            "pnl": p.pnl
+                            "pnl": p.pnl,
                         }
                         for p in state.positions
-                    ]
+                    ],
                 },
                 market_data=market_summary,
                 recent_trades=[
@@ -140,10 +139,10 @@ class TradingAgent:
                         "action": t.action.value,
                         "symbol": t.symbol,
                         "quantity": t.quantity,
-                        "price": t.price
+                        "price": t.price,
                     }
                     for t in self._trades[-5:]
-                ]
+                ],
             )
 
             logger.info(f"Grok decision: {decision}")
@@ -157,11 +156,13 @@ class TradingAgent:
                     "cash": state.cash,
                     "total_value": state.total_value,
                     "positions_count": len(state.positions),
-                    "pnl_percent": state.pnl_percent
+                    "pnl_percent": state.pnl_percent,
                 },
-                "market_data": {sym: {"price": d["current_price"], "change_1d": d["change_1d"]}
-                               for sym, d in market_data.items()},
-                "timestamp": datetime.now().isoformat()
+                "market_data": {
+                    sym: {"price": d["current_price"], "change_1d": d["change_1d"]}
+                    for sym, d in market_data.items()
+                },
+                "timestamp": datetime.now().isoformat(),
             }
 
             # Execute the decision
@@ -177,7 +178,7 @@ class TradingAgent:
                     symbol=decision.get("symbol"),
                     context=decision_context,
                     risk_score=decision.get("risk_score"),
-                    executed=False
+                    executed=False,
                 )
 
                 self._status = AgentStatus.IDLE
@@ -195,7 +196,7 @@ class TradingAgent:
                     context=decision_context,
                     risk_score=decision.get("risk_score", 50),
                     executed=trade is not None,
-                    trade_id=int(trade.id) if trade and trade.id.isdigit() else None
+                    trade_id=int(trade.id) if trade and trade.id.isdigit() else None,
                 )
 
                 return trade
@@ -222,14 +223,14 @@ class TradingAgent:
 
         return ((new_price - old_price) / old_price) * 100
 
-    async def _close_position(self, position: Position, reason: str) -> Optional[Trade]:
+    async def _close_position(self, position: Position, reason: str) -> Trade | None:
         """Close an existing position."""
         order = TradeOrder(
             symbol=position.symbol,
             action=TradeAction.CLOSE,
             quantity=abs(position.quantity),
             reasoning=reason,
-            evaluated_risk=50
+            evaluated_risk=50,
         )
 
         result = await self.ibkr.execute_order(order)
@@ -245,7 +246,7 @@ class TradingAgent:
                 total_value=result.total_value,
                 fee=result.fee,
                 reasoning=reason,
-                evaluated_risk=50
+                evaluated_risk=50,
             )
             self._trades.append(trade)
             self._last_action = f"Closed {position.symbol}: {reason}"
@@ -258,7 +259,7 @@ class TradingAgent:
         self._status = AgentStatus.IDLE
         return None
 
-    async def _execute_decision(self, decision: dict, market_data: dict) -> Optional[Trade]:
+    async def _execute_decision(self, decision: dict, market_data: dict) -> Trade | None:
         """Execute a trading decision from Grok."""
         symbol = decision.get("symbol")
         if not symbol:
@@ -290,7 +291,7 @@ class TradingAgent:
             action=action,
             quantity=quantity,
             reasoning=decision.get("reasoning", ""),
-            evaluated_risk=decision.get("risk_score", 50)
+            evaluated_risk=decision.get("risk_score", 50),
         )
 
         logger.info(f"Executing order: {order}")
@@ -307,10 +308,12 @@ class TradingAgent:
                 total_value=result.total_value,
                 fee=result.fee,
                 reasoning=decision.get("reasoning", ""),
-                evaluated_risk=decision.get("risk_score", 50)
+                evaluated_risk=decision.get("risk_score", 50),
             )
             self._trades.append(trade)
-            self._last_action = f"{action.value.upper()} {result.quantity} {symbol} @ ${result.executed_price:.2f}"
+            self._last_action = (
+                f"{action.value.upper()} {result.quantity} {symbol} @ ${result.executed_price:.2f}"
+            )
             self._last_action_time = result.timestamp
             logger.info(f"Trade executed: {trade}")
             self._status = AgentStatus.IDLE
@@ -326,7 +329,7 @@ class TradingAgent:
 
 
 # Singleton
-_trading_agent: Optional[TradingAgent] = None
+_trading_agent: TradingAgent | None = None
 
 
 def get_trading_agent() -> TradingAgent:

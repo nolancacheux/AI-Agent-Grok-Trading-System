@@ -1,15 +1,14 @@
 """Tool executor for Grok AI function calling."""
 
-import json
 from datetime import datetime
-from typing import Any, Optional
+
 from loguru import logger
 
 from src.broker.ibkr_client import get_ibkr_client
-from src.market_data.yahoo_finance import get_yahoo_client
 from src.database import get_db
+from src.market_data.yahoo_finance import get_yahoo_client
+from src.models import OrderType, TradeAction, TradeOrder
 from src.scheduler.trading_scheduler import get_scheduler
-from src.models import TradeOrder, TradeAction, OrderType
 
 
 class ToolExecutor:
@@ -27,6 +26,7 @@ class ToolExecutor:
         """Lazy load Grok client to avoid circular imports."""
         if self._grok_client is None:
             from src.agent.grok_client import get_grok_client
+
             self._grok_client = get_grok_client()
         return self._grok_client
 
@@ -35,10 +35,7 @@ class ToolExecutor:
         logger.info(f"Executing tool: {tool_name} with args: {arguments}")
 
         self.db.log(
-            message=f"Tool call: {tool_name}",
-            component="tools",
-            level="INFO",
-            details=arguments
+            message=f"Tool call: {tool_name}", component="tools", level="INFO", details=arguments
         )
 
         try:
@@ -68,7 +65,7 @@ class ToolExecutor:
                 message=f"Tool result: {tool_name}",
                 component="tools",
                 level="DEBUG",
-                details={"result": str(result)[:500]}
+                details={"result": str(result)[:500]},
             )
 
             return result
@@ -76,9 +73,7 @@ class ToolExecutor:
         except Exception as e:
             logger.error(f"Tool execution error: {e}")
             self.db.log(
-                message=f"Tool error: {tool_name} - {str(e)}",
-                component="tools",
-                level="ERROR"
+                message=f"Tool error: {tool_name} - {str(e)}", component="tools", level="ERROR"
             )
             return {"error": str(e)}
 
@@ -99,21 +94,23 @@ class ToolExecutor:
         # Format for readability
         formatted = []
         for point in history[-50:]:  # Last 50 data points
-            formatted.append({
-                "date": point["date"],
-                "open": round(point["open"], 2),
-                "high": round(point["high"], 2),
-                "low": round(point["low"], 2),
-                "close": round(point["close"], 2),
-                "volume": point["volume"]
-            })
+            formatted.append(
+                {
+                    "date": point["date"],
+                    "open": round(point["open"], 2),
+                    "high": round(point["high"], 2),
+                    "low": round(point["low"], 2),
+                    "close": round(point["close"], 2),
+                    "volume": point["volume"],
+                }
+            )
 
         return {
             "symbol": symbol,
             "period": period,
             "interval": interval,
             "data_points": len(formatted),
-            "history": formatted
+            "history": formatted,
         }
 
     async def _get_stock_info(self, args: dict) -> dict:
@@ -145,7 +142,7 @@ class ToolExecutor:
                 "symbol": symbol,
                 "price": round(price, 2),
                 "source": "yahoo_finance",
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             }
 
         # Try IBKR if connected
@@ -157,7 +154,7 @@ class ToolExecutor:
                         "symbol": symbol,
                         "price": round(price, 2),
                         "source": "ibkr",
-                        "timestamp": datetime.now().isoformat()
+                        "timestamp": datetime.now().isoformat(),
                     }
             except Exception:
                 pass
@@ -198,7 +195,7 @@ class ToolExecutor:
                 quantity=quantity or 0,
                 limit_price=limit_price,
                 reasoning=reasoning,
-                evaluated_risk=risk_score
+                evaluated_risk=risk_score,
             )
 
             result = await self.ibkr.execute_order(order)
@@ -215,7 +212,7 @@ class ToolExecutor:
                     "total_value": result.total_value,
                     "fee": result.fee,
                     "reasoning": reasoning,
-                    "evaluated_risk": risk_score
+                    "evaluated_risk": risk_score,
                 }
                 self.db.save_trade(trade_data)
 
@@ -236,13 +233,13 @@ class ToolExecutor:
                     "total_value": result.total_value,
                     "fee": result.fee,
                     "cash_remaining": result.cash_after,
-                    "message": f"Successfully {action} {result.quantity} shares of {symbol} at ${result.executed_price:.2f}"
+                    "message": f"Successfully {action} {result.quantity} shares of {symbol} at ${result.executed_price:.2f}",
                 }
             else:
                 return {
                     "success": False,
                     "error": result.error,
-                    "message": f"Trade failed: {result.error}"
+                    "message": f"Trade failed: {result.error}",
                 }
 
         except Exception as e:
@@ -269,15 +266,17 @@ class ToolExecutor:
 
             positions_data = []
             for pos in positions:
-                positions_data.append({
-                    "symbol": pos.symbol,
-                    "quantity": pos.quantity,
-                    "avg_price": round(pos.avg_price, 2),
-                    "current_price": round(pos.current_price, 2),
-                    "value": round(pos.value, 2),
-                    "pnl": round(pos.pnl, 2),
-                    "pnl_percent": round(pos.pnl_percent, 2)
-                })
+                positions_data.append(
+                    {
+                        "symbol": pos.symbol,
+                        "quantity": pos.quantity,
+                        "avg_price": round(pos.avg_price, 2),
+                        "current_price": round(pos.current_price, 2),
+                        "value": round(pos.value, 2),
+                        "pnl": round(pos.pnl, 2),
+                        "pnl_percent": round(pos.pnl_percent, 2),
+                    }
+                )
 
             holdings_value = sum(p["value"] for p in positions_data)
 
@@ -289,7 +288,7 @@ class ToolExecutor:
                 "pnl": round(pnl, 2),
                 "pnl_percent": round(pnl_percent, 2),
                 "positions": positions_data,
-                "position_count": len(positions_data)
+                "position_count": len(positions_data),
             }
 
         except Exception as e:
@@ -307,15 +306,9 @@ class ToolExecutor:
             for symbol in tickers:
                 price = self.yahoo.get_stock_price(symbol)
                 if price:
-                    trending.append({
-                        "symbol": symbol,
-                        "price": round(price, 2)
-                    })
+                    trending.append({"symbol": symbol, "price": round(price, 2)})
 
-            return {
-                "trending_stocks": trending,
-                "count": len(trending)
-            }
+            return {"trending_stocks": trending, "count": len(trending)}
 
         except Exception as e:
             return {"error": str(e)}
@@ -329,11 +322,7 @@ class ToolExecutor:
 
         try:
             results = self.yahoo.search_stocks(query)
-            return {
-                "query": query,
-                "results": results[:10],
-                "count": len(results)
-            }
+            return {"query": query, "results": results[:10], "count": len(results)}
         except Exception as e:
             return {"error": str(e)}
 
@@ -349,18 +338,14 @@ class ToolExecutor:
             message=f"Hour complete: {summary}",
             component="trading",
             level="INFO",
-            details={
-                "trades_made": trades_made,
-                "sentiment": sentiment,
-                "next_plan": next_plan
-            }
+            details={"trades_made": trades_made, "sentiment": sentiment, "next_plan": next_plan},
         )
 
         # Save as chat message for history
         self.db.save_chat_message(
             role="assistant",
             content=f"[HOUR SUMMARY] {summary}\n\nTrades: {trades_made}\nSentiment: {sentiment}\nNext: {next_plan}",
-            session_id=datetime.now().strftime("%Y-%m-%d")
+            session_id=datetime.now().strftime("%Y-%m-%d"),
         )
 
         return {
@@ -368,7 +353,7 @@ class ToolExecutor:
             "message": "Hour actions completed and logged",
             "timestamp": datetime.now().isoformat(),
             "summary": summary,
-            "trades_made": trades_made
+            "trades_made": trades_made,
         }
 
     async def _get_recent_trades(self, args: dict) -> dict:
@@ -377,10 +362,7 @@ class ToolExecutor:
 
         trades = self.db.get_recent_trades(count=limit)
 
-        return {
-            "trades": [t.to_dict() for t in trades],
-            "count": len(trades)
-        }
+        return {"trades": [t.to_dict() for t in trades], "count": len(trades)}
 
     async def _search_news(self, args: dict) -> dict:
         """Search for real-time news using Grok's live search."""
@@ -391,17 +373,10 @@ class ToolExecutor:
             return {"error": "Query is required"}
 
         # Build search query
-        if symbol:
-            search_query = f"{symbol} stock {query}"
-        else:
-            search_query = query
+        search_query = f"{symbol} stock {query}" if symbol else query
 
         # Log the search request
-        self.db.log(
-            message=f"Live news search: {search_query}",
-            component="news",
-            level="INFO"
-        )
+        self.db.log(message=f"Live news search: {search_query}", component="news", level="INFO")
 
         try:
             # Use Grok's live search for real-time news
@@ -409,15 +384,15 @@ class ToolExecutor:
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a financial news analyst. Search for the latest news and provide a concise summary of the most important and relevant information for trading decisions."
+                        "content": "You are a financial news analyst. Search for the latest news and provide a concise summary of the most important and relevant information for trading decisions.",
                     },
                     {
                         "role": "user",
-                        "content": f"Search for the latest news about: {search_query}. Focus on market-moving news, earnings, analyst ratings, and any catalysts."
-                    }
+                        "content": f"Search for the latest news about: {search_query}. Focus on market-moving news, earnings, analyst ratings, and any catalysts.",
+                    },
                 ],
                 sources=["news", "x", "web"],
-                return_citations=True
+                return_citations=True,
             )
 
             # Format citations for response
@@ -425,18 +400,20 @@ class ToolExecutor:
             formatted_citations = []
             for citation in citations[:5]:  # Limit to top 5 sources
                 if isinstance(citation, dict):
-                    formatted_citations.append({
-                        "title": citation.get("title", ""),
-                        "url": citation.get("url", ""),
-                        "source": citation.get("source", "")
-                    })
+                    formatted_citations.append(
+                        {
+                            "title": citation.get("title", ""),
+                            "url": citation.get("url", ""),
+                            "source": citation.get("source", ""),
+                        }
+                    )
                 elif isinstance(citation, str):
                     formatted_citations.append({"url": citation})
 
             self.db.log(
                 message=f"News search completed: {len(formatted_citations)} sources found",
                 component="news",
-                level="INFO"
+                level="INFO",
             )
 
             return {
@@ -445,7 +422,7 @@ class ToolExecutor:
                 "summary": result.get("content", "No results found"),
                 "citations": formatted_citations,
                 "sources_searched": result.get("sources_searched", []),
-                "success": "error" not in result
+                "success": "error" not in result,
             }
 
         except Exception as e:
@@ -453,7 +430,7 @@ class ToolExecutor:
             return {
                 "query": search_query,
                 "error": str(e),
-                "message": "Live search failed, please try again"
+                "message": "Live search failed, please try again",
             }
 
     async def _set_stop_loss(self, args: dict) -> dict:
@@ -488,13 +465,13 @@ class ToolExecutor:
             "symbol": symbol,
             "stop_price": stop_price,
             "quantity": position.quantity,
-            "created": datetime.now().isoformat()
+            "created": datetime.now().isoformat(),
         }
 
         self.db.log(
             message=f"Stop-loss set for {symbol} at ${stop_price:.2f}",
             component="orders",
-            level="INFO"
+            level="INFO",
         )
 
         return {
@@ -503,7 +480,7 @@ class ToolExecutor:
             "stop_price": round(stop_price, 2),
             "current_price": round(position.current_price, 2),
             "quantity": position.quantity,
-            "message": f"Stop-loss order queued for {symbol} at ${stop_price:.2f}"
+            "message": f"Stop-loss order queued for {symbol} at ${stop_price:.2f}",
         }
 
     async def _set_take_profit(self, args: dict) -> dict:
@@ -538,13 +515,13 @@ class ToolExecutor:
             "symbol": symbol,
             "target_price": target_price,
             "quantity": position.quantity,
-            "created": datetime.now().isoformat()
+            "created": datetime.now().isoformat(),
         }
 
         self.db.log(
             message=f"Take-profit set for {symbol} at ${target_price:.2f}",
             component="orders",
-            level="INFO"
+            level="INFO",
         )
 
         return {
@@ -554,12 +531,12 @@ class ToolExecutor:
             "entry_price": round(position.avg_price, 2),
             "current_price": round(position.current_price, 2),
             "quantity": position.quantity,
-            "message": f"Take-profit order queued for {symbol} at ${target_price:.2f}"
+            "message": f"Take-profit order queued for {symbol} at ${target_price:.2f}",
         }
 
 
 # Singleton
-_executor: Optional[ToolExecutor] = None
+_executor: ToolExecutor | None = None
 
 
 def get_tool_executor() -> ToolExecutor:

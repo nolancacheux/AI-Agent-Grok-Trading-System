@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException
+
 from src.broker.ibkr_client import get_ibkr_client
 from src.market_data.yahoo_finance import get_yahoo_client
 from src.models import TradeOrder, TradeResult
@@ -48,12 +49,7 @@ async def get_stock_price(symbol: str):
 
     if price is None or price <= 0:
         raise HTTPException(
-            status_code=404,
-            detail=f"Could not get price for {symbol} from any source"
+            status_code=404, detail=f"Could not get price for {symbol} from any source"
         )
 
-    return {
-        "symbol": symbol,
-        "price": round(price, 2),
-        "source": source
-    }
+    return {"symbol": symbol, "price": round(price, 2), "source": source}

@@ -1,7 +1,5 @@
 """Tool definitions for Grok AI function calling."""
 
-from typing import List
-
 # Tool definitions for OpenAI-compatible function calling
 TRADING_TOOLS = [
     {
@@ -14,24 +12,24 @@ TRADING_TOOLS = [
                 "properties": {
                     "symbol": {
                         "type": "string",
-                        "description": "Stock ticker symbol (e.g., 'AAPL', 'NVDA', 'TSLA')"
+                        "description": "Stock ticker symbol (e.g., 'AAPL', 'NVDA', 'TSLA')",
                     },
                     "period": {
                         "type": "string",
                         "description": "Time period for history",
                         "enum": ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "max"],
-                        "default": "1mo"
+                        "default": "1mo",
                     },
                     "interval": {
                         "type": "string",
                         "description": "Data interval",
                         "enum": ["1m", "5m", "15m", "30m", "1h", "1d", "1wk", "1mo"],
-                        "default": "1h"
-                    }
+                        "default": "1h",
+                    },
                 },
-                "required": ["symbol"]
-            }
-        }
+                "required": ["symbol"],
+            },
+        },
     },
     {
         "type": "function",
@@ -40,15 +38,10 @@ TRADING_TOOLS = [
             "description": "Get detailed information about a stock including market cap, P/E ratio, sector, and other fundamentals.",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "symbol": {
-                        "type": "string",
-                        "description": "Stock ticker symbol"
-                    }
-                },
-                "required": ["symbol"]
-            }
-        }
+                "properties": {"symbol": {"type": "string", "description": "Stock ticker symbol"}},
+                "required": ["symbol"],
+            },
+        },
     },
     {
         "type": "function",
@@ -57,15 +50,10 @@ TRADING_TOOLS = [
             "description": "Get the current/latest price for a stock symbol.",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "symbol": {
-                        "type": "string",
-                        "description": "Stock ticker symbol"
-                    }
-                },
-                "required": ["symbol"]
-            }
-        }
+                "properties": {"symbol": {"type": "string", "description": "Stock ticker symbol"}},
+                "required": ["symbol"],
+            },
+        },
     },
     {
         "type": "function",
@@ -78,52 +66,45 @@ TRADING_TOOLS = [
                     "action": {
                         "type": "string",
                         "description": "Trade action to take",
-                        "enum": ["buy", "sell", "close"]
+                        "enum": ["buy", "sell", "close"],
                     },
-                    "symbol": {
-                        "type": "string",
-                        "description": "Stock ticker symbol"
-                    },
+                    "symbol": {"type": "string", "description": "Stock ticker symbol"},
                     "quantity": {
                         "type": "integer",
-                        "description": "Number of shares to trade (required for buy/sell, optional for close)"
+                        "description": "Number of shares to trade (required for buy/sell, optional for close)",
                     },
                     "order_type": {
                         "type": "string",
                         "description": "Order type",
                         "enum": ["market", "limit"],
-                        "default": "market"
+                        "default": "market",
                     },
                     "limit_price": {
                         "type": "number",
-                        "description": "Limit price (required if order_type is 'limit')"
+                        "description": "Limit price (required if order_type is 'limit')",
                     },
                     "reasoning": {
                         "type": "string",
-                        "description": "Explanation for why this trade is being made"
+                        "description": "Explanation for why this trade is being made",
                     },
                     "risk_score": {
                         "type": "integer",
                         "description": "Risk assessment 0-100 (0=low risk, 100=high risk)",
                         "minimum": 0,
-                        "maximum": 100
-                    }
+                        "maximum": 100,
+                    },
                 },
-                "required": ["action", "symbol", "reasoning"]
-            }
-        }
+                "required": ["action", "symbol", "reasoning"],
+            },
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "get_portfolio_state",
             "description": "Get current portfolio state including cash, positions, P&L, and total value.",
-            "parameters": {
-                "type": "object",
-                "properties": {},
-                "required": []
-            }
-        }
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
     },
     {
         "type": "function",
@@ -136,12 +117,12 @@ TRADING_TOOLS = [
                     "limit": {
                         "type": "integer",
                         "description": "Maximum number of stocks to return",
-                        "default": 10
+                        "default": 10,
                     }
                 },
-                "required": []
-            }
-        }
+                "required": [],
+            },
+        },
     },
     {
         "type": "function",
@@ -153,12 +134,12 @@ TRADING_TOOLS = [
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "Search query (company name, sector, etc.)"
+                        "description": "Search query (company name, sector, etc.)",
                     }
                 },
-                "required": ["query"]
-            }
-        }
+                "required": ["query"],
+            },
+        },
     },
     {
         "type": "function",
@@ -170,26 +151,26 @@ TRADING_TOOLS = [
                 "properties": {
                     "summary": {
                         "type": "string",
-                        "description": "Summary of what was analyzed and decided this hour"
+                        "description": "Summary of what was analyzed and decided this hour",
                     },
                     "trades_made": {
                         "type": "integer",
                         "description": "Number of trades executed this hour",
-                        "default": 0
+                        "default": 0,
                     },
                     "market_sentiment": {
                         "type": "string",
                         "description": "Your assessment of current market sentiment",
-                        "enum": ["very_bearish", "bearish", "neutral", "bullish", "very_bullish"]
+                        "enum": ["very_bearish", "bearish", "neutral", "bullish", "very_bullish"],
                     },
                     "next_action_plan": {
                         "type": "string",
-                        "description": "What you plan to do next trading period"
-                    }
+                        "description": "What you plan to do next trading period",
+                    },
                 },
-                "required": ["summary"]
-            }
-        }
+                "required": ["summary"],
+            },
+        },
     },
     {
         "type": "function",
@@ -202,12 +183,12 @@ TRADING_TOOLS = [
                     "limit": {
                         "type": "integer",
                         "description": "Maximum number of trades to return",
-                        "default": 10
+                        "default": 10,
                     }
                 },
-                "required": []
-            }
-        }
+                "required": [],
+            },
+        },
     },
     {
         "type": "function",
@@ -219,16 +200,16 @@ TRADING_TOOLS = [
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "Search query for news (e.g., 'NVDA earnings', 'tech sector news')"
+                        "description": "Search query for news (e.g., 'NVDA earnings', 'tech sector news')",
                     },
                     "symbol": {
                         "type": "string",
-                        "description": "Optional: specific stock symbol to focus on"
-                    }
+                        "description": "Optional: specific stock symbol to focus on",
+                    },
                 },
-                "required": ["query"]
-            }
-        }
+                "required": ["query"],
+            },
+        },
     },
     {
         "type": "function",
@@ -238,22 +219,19 @@ TRADING_TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "symbol": {
-                        "type": "string",
-                        "description": "Stock symbol for the position"
-                    },
+                    "symbol": {"type": "string", "description": "Stock symbol for the position"},
                     "stop_price": {
                         "type": "number",
-                        "description": "Price at which to trigger the stop-loss"
+                        "description": "Price at which to trigger the stop-loss",
                     },
                     "percentage": {
                         "type": "number",
-                        "description": "Alternative: percentage below current price (e.g., 5 for 5%)"
-                    }
+                        "description": "Alternative: percentage below current price (e.g., 5 for 5%)",
+                    },
                 },
-                "required": ["symbol"]
-            }
-        }
+                "required": ["symbol"],
+            },
+        },
     },
     {
         "type": "function",
@@ -263,27 +241,24 @@ TRADING_TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "symbol": {
-                        "type": "string",
-                        "description": "Stock symbol for the position"
-                    },
+                    "symbol": {"type": "string", "description": "Stock symbol for the position"},
                     "target_price": {
                         "type": "number",
-                        "description": "Price at which to take profit"
+                        "description": "Price at which to take profit",
                     },
                     "percentage": {
                         "type": "number",
-                        "description": "Alternative: percentage above entry price (e.g., 10 for 10%)"
-                    }
+                        "description": "Alternative: percentage above entry price (e.g., 10 for 10%)",
+                    },
                 },
-                "required": ["symbol"]
-            }
-        }
-    }
+                "required": ["symbol"],
+            },
+        },
+    },
 ]
 
 
-def get_tool_definitions() -> List[dict]:
+def get_tool_definitions() -> list[dict]:
     """Get all tool definitions for function calling."""
     return TRADING_TOOLS
 

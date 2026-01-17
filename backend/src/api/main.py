@@ -1,27 +1,27 @@
 """Main FastAPI application with all integrations."""
 
+import sys
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
-import sys
 
-from src.config import get_settings
-from src.broker.ibkr_client import get_ibkr_client
-from src.database import init_db, get_db
-from src.scheduler import get_scheduler
-from src.agent.trading_agent import get_trading_agent
 from src.agent.reflections import get_reflection_engine
-from src.api.routes import trading, portfolio, health, agent
-from src.api.websocket import websocket_handler, get_connection_manager
-
+from src.agent.trading_agent import get_trading_agent
+from src.api.routes import agent, health, portfolio, trading
+from src.api.websocket import get_connection_manager, websocket_handler
+from src.broker.ibkr_client import get_ibkr_client
+from src.config import get_settings
+from src.database import get_db, init_db
+from src.scheduler import get_scheduler
 
 # Configure logging
 logger.remove()
 logger.add(
     sys.stdout,
     format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan> - <level>{message}</level>",
-    level=get_settings().log_level
+    level=get_settings().log_level,
 )
 
 
@@ -52,18 +52,20 @@ async def take_portfolio_snapshot():
             holdings_value=holdings_value,
             pnl=pnl,
             pnl_percent=pnl_percent,
-            positions=positions_data
+            positions=positions_data,
         )
 
         # Broadcast update
-        await manager.broadcast_portfolio_update({
-            "cash": cash,
-            "holdings_value": holdings_value,
-            "total_value": total_value,
-            "pnl": pnl,
-            "pnl_percent": pnl_percent,
-            "positions": positions_data
-        })
+        await manager.broadcast_portfolio_update(
+            {
+                "cash": cash,
+                "holdings_value": holdings_value,
+                "total_value": total_value,
+                "pnl": pnl,
+                "pnl_percent": pnl_percent,
+                "positions": positions_data,
+            }
+        )
 
     except Exception as e:
         logger.error(f"Portfolio snapshot error: {e}")
@@ -90,11 +92,9 @@ async def run_trading_loop():
 
     except Exception as e:
         logger.error(f"Trading loop error: {e}")
-        await get_connection_manager().broadcast_log({
-            "level": "ERROR",
-            "message": f"Trading loop error: {str(e)}",
-            "component": "trading"
-        })
+        await get_connection_manager().broadcast_log(
+            {"level": "ERROR", "message": f"Trading loop error: {str(e)}", "component": "trading"}
+        )
 
 
 async def run_reflection():
@@ -116,7 +116,7 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     # Startup
     logger.info("Starting Grok Trading Bot API...")
-    settings = get_settings()
+    get_settings()
 
     # Initialize database
     db = init_db()
@@ -149,7 +149,7 @@ async def lifespan(app: FastAPI):
         message="Grok Trading Bot API started",
         component="api",
         level="INFO",
-        details={"ibkr_connected": connected}
+        details={"ibkr_connected": connected},
     )
 
     yield
@@ -159,18 +159,14 @@ async def lifespan(app: FastAPI):
     scheduler.stop()
     await ibkr.disconnect()
 
-    db.log(
-        message="Grok Trading Bot API stopped",
-        component="api",
-        level="INFO"
-    )
+    db.log(message="Grok Trading Bot API stopped", component="api", level="INFO")
 
 
 app = FastAPI(
     title="Grok Trading Bot API",
     description="Automated trading bot powered by Grok AI",
     version="0.2.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # CORS
@@ -192,11 +188,7 @@ app.include_router(agent.router, prefix="/api", tags=["Agent"])
 
 @app.get("/")
 async def root():
-    return {
-        "name": "Grok Trading Bot",
-        "version": "0.2.0",
-        "status": "running"
-    }
+    return {"name": "Grok Trading Bot", "version": "0.2.0", "status": "running"}
 
 
 @app.websocket("/ws")
@@ -206,6 +198,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
 
 # Additional API endpoints for new features
+
 
 @app.get("/api/scheduler/status")
 async def get_scheduler_status():
@@ -234,6 +227,7 @@ async def trigger_trading():
 async def disconnect_broker(reconnect_minutes: int = 5):
     """Disconnect from IBKR to allow mobile access. Auto-reconnects after specified minutes."""
     import asyncio
+
     ibkr = get_ibkr_client()
     db = get_db()
     manager = get_connection_manager()
@@ -246,7 +240,7 @@ async def disconnect_broker(reconnect_minutes: int = 5):
     db.log(
         message=f"IBKR disconnected for mobile access. Will reconnect in {reconnect_minutes} minutes.",
         component="broker",
-        level="INFO"
+        level="INFO",
     )
 
     # Schedule auto-reconnect
@@ -258,20 +252,22 @@ async def disconnect_broker(reconnect_minutes: int = 5):
                 db.log(
                     message="IBKR auto-reconnected after mobile access period",
                     component="broker",
-                    level="INFO"
+                    level="INFO",
                 )
-                await manager.broadcast_log({
-                    "level": "INFO",
-                    "message": "Broker reconnected automatically",
-                    "component": "broker"
-                })
+                await manager.broadcast_log(
+                    {
+                        "level": "INFO",
+                        "message": "Broker reconnected automatically",
+                        "component": "broker",
+                    }
+                )
 
     asyncio.create_task(auto_reconnect())
 
     return {
         "status": "disconnected",
         "message": f"Broker disconnected. Will auto-reconnect in {reconnect_minutes} minutes.",
-        "reconnect_at": reconnect_minutes
+        "reconnect_at": reconnect_minutes,
     }
 
 
@@ -288,16 +284,10 @@ async def reconnect_broker():
     connected = await ibkr.connect()
 
     if connected:
-        db.log(
-            message="IBKR manually reconnected",
-            component="broker",
-            level="INFO"
+        db.log(message="IBKR manually reconnected", component="broker", level="INFO")
+        await manager.broadcast_log(
+            {"level": "INFO", "message": "Broker reconnected", "component": "broker"}
         )
-        await manager.broadcast_log({
-            "level": "INFO",
-            "message": "Broker reconnected",
-            "component": "broker"
-        })
         return {"status": "connected", "message": "Successfully reconnected to broker"}
     else:
         return {"status": "failed", "message": "Failed to reconnect to broker"}
@@ -332,7 +322,7 @@ async def get_logs(limit: int = 100, level: str = None, component: str = None):
     """Get system logs."""
     db = get_db()
     logs = db.get_logs(limit=limit, level=level, component=component)
-    return {"logs": [l.to_dict() for l in logs]}
+    return {"logs": [log.to_dict() for log in logs]}
 
 
 @app.get("/api/stats")
@@ -348,7 +338,4 @@ async def get_portfolio_history(hours: int = 24):
     """Get portfolio value history."""
     db = get_db()
     history = db.get_portfolio_history(hours=hours)
-    return {
-        "history": [h.to_dict() for h in history],
-        "count": len(history)
-    }
+    return {"history": [h.to_dict() for h in history], "count": len(history)}

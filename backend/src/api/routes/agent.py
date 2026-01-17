@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Query
-from typing import Optional
+
 from src.agent.trading_agent import get_trading_agent
 from src.database import get_db
 
@@ -23,7 +23,7 @@ async def trigger_analysis():
         trade = await agent.analyze_and_trade()
 
         # Get the last decision for full context
-        last_decision = getattr(agent, '_last_decision', None)
+        last_decision = getattr(agent, "_last_decision", None)
 
         if trade:
             return {
@@ -34,19 +34,19 @@ async def trigger_analysis():
                     "symbol": trade.symbol,
                     "quantity": trade.quantity,
                     "price": trade.price,
-                    "reasoning": trade.reasoning
+                    "reasoning": trade.reasoning,
                 },
-                "decision": last_decision
+                "decision": last_decision,
             }
         else:
             return {
                 "status": "no_trade",
                 "message": "Analysis complete, no trade executed",
-                "decision": last_decision
+                "decision": last_decision,
             }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/agent/trades")
@@ -66,7 +66,7 @@ async def get_trades():
                 "total_value": t.total_value,
                 "fee": t.fee,
                 "reasoning": t.reasoning,
-                "risk_score": t.evaluated_risk
+                "risk_score": t.evaluated_risk,
             }
             for t in trades
         ]
@@ -76,15 +76,15 @@ async def get_trades():
 @router.get("/agent/decisions")
 async def get_decisions(
     limit: int = Query(default=50, ge=1, le=500),
-    action: Optional[str] = Query(default=None, description="Filter by action: buy, sell, close, keep"),
-    symbol: Optional[str] = Query(default=None, description="Filter by symbol")
+    action: str | None = Query(
+        default=None, description="Filter by action: buy, sell, close, keep"
+    ),
+    symbol: str | None = Query(default=None, description="Filter by symbol"),
 ):
     """Get all trading decisions (including KEEP decisions)."""
     db = get_db()
     decisions = db.get_decisions(limit=limit, action=action, symbol=symbol)
-    return {
-        "decisions": [d.to_dict() for d in decisions]
-    }
+    return {"decisions": [d.to_dict() for d in decisions]}
 
 
 @router.get("/agent/last-decision")
@@ -94,13 +94,10 @@ async def get_last_decision():
     db = get_db()
 
     # Get the last decision from agent memory (most recent)
-    last_decision = getattr(agent, '_last_decision', None)
+    last_decision = getattr(agent, "_last_decision", None)
 
     # Also get from database for persistence
     decisions = db.get_decisions(limit=1)
     db_decision = decisions[0].to_dict() if decisions else None
 
-    return {
-        "current_session": last_decision,
-        "last_persisted": db_decision
-    }
+    return {"current_session": last_decision, "last_persisted": db_decision}

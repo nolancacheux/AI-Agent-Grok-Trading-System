@@ -1,15 +1,15 @@
 """Enhanced Grok client with tool calling support."""
 
 import json
-from openai import OpenAI
-from typing import Optional, List
-from loguru import logger
 
-from src.config import get_settings
-from src.database import get_db
+from loguru import logger
+from openai import OpenAI
+
+from src.agent.prompts.trading import TRADING_SYSTEM_PROMPT, get_trading_prompt
 from src.agent.tools.definitions import get_tool_definitions
 from src.agent.tools.executor import execute_tool
-from src.agent.prompts.trading import TRADING_SYSTEM_PROMPT, get_trading_prompt
+from src.config import get_settings
+from src.database import get_db
 
 
 class GrokClient:
@@ -17,7 +17,7 @@ class GrokClient:
 
     def __init__(self):
         self.settings = get_settings()
-        self._client: Optional[OpenAI] = None
+        self._client: OpenAI | None = None
         self.db = get_db()
 
     @property
@@ -27,18 +27,17 @@ class GrokClient:
                 raise ValueError("XAI_API_KEY not configured")
 
             self._client = OpenAI(
-                api_key=self.settings.xai_api_key,
-                base_url=self.settings.xai_base_url
+                api_key=self.settings.xai_api_key, base_url=self.settings.xai_base_url
             )
         return self._client
 
     def chat(
         self,
         messages: list[dict],
-        model: Optional[str] = None,
+        model: str | None = None,
         temperature: float = 0.7,
         max_tokens: int = 2048,
-        tools: Optional[list] = None
+        tools: list | None = None,
     ) -> str:
         """Send a chat completion request to Grok."""
         try:
@@ -46,7 +45,7 @@ class GrokClient:
                 "model": model or self.settings.xai_model,
                 "messages": messages,
                 "temperature": temperature,
-                "max_tokens": max_tokens
+                "max_tokens": max_tokens,
             }
 
             if tools:
@@ -65,9 +64,9 @@ class GrokClient:
         messages: list[dict],
         sources: list = None,
         return_citations: bool = True,
-        model: Optional[str] = None,
+        model: str | None = None,
         temperature: float = 0.7,
-        max_tokens: int = 4096
+        max_tokens: int = 4096,
     ) -> dict:
         """Chat with Grok's live search enabled for real-time web/news/X search."""
         if sources is None:
@@ -83,42 +82,34 @@ class GrokClient:
                     "mode": "on",
                     "max_search_results": self.settings.grok_search_max_results,
                     "return_citations": return_citations,
-                    "sources": sources
-                }
+                    "sources": sources,
+                },
             )
 
             content = response.choices[0].message.content or ""
             citations = []
 
             # Extract citations if available
-            if hasattr(response, 'citations'):
+            if hasattr(response, "citations"):
                 citations = response.citations
-            elif hasattr(response.choices[0].message, 'citations'):
+            elif hasattr(response.choices[0].message, "citations"):
                 citations = response.choices[0].message.citations
 
             logger.info(f"Live search completed with {len(citations)} citations")
 
-            return {
-                "content": content,
-                "citations": citations,
-                "sources_searched": sources
-            }
+            return {"content": content, "citations": citations, "sources_searched": sources}
 
         except Exception as e:
             logger.error(f"Grok live search error: {e}")
-            return {
-                "content": f"Search failed: {str(e)}",
-                "citations": [],
-                "error": str(e)
-            }
+            return {"content": f"Search failed: {str(e)}", "citations": [], "error": str(e)}
 
     async def chat_with_tools(
         self,
         messages: list[dict],
-        model: Optional[str] = None,
+        model: str | None = None,
         temperature: float = 0.7,
         max_tokens: int = 4096,
-        max_iterations: int = 10
+        max_iterations: int = 10,
     ) -> dict:
         """Chat with automatic tool execution."""
         tools = get_tool_definitions()
@@ -136,7 +127,7 @@ class GrokClient:
                     temperature=temperature,
                     max_tokens=max_tokens,
                     tools=tools,
-                    tool_choice="auto"
+                    tool_choice="auto",
                 )
 
                 message = response.choices[0].message
@@ -151,25 +142,27 @@ class GrokClient:
                     self.db.save_chat_message(
                         role="assistant",
                         content=assistant_content,
-                        tokens=response.usage.total_tokens if response.usage else None
+                        tokens=response.usage.total_tokens if response.usage else None,
                     )
 
                     # Add assistant message with tool calls
-                    current_messages.append({
-                        "role": "assistant",
-                        "content": message.content,
-                        "tool_calls": [
-                            {
-                                "id": tc.id,
-                                "type": "function",
-                                "function": {
-                                    "name": tc.function.name,
-                                    "arguments": tc.function.arguments
+                    current_messages.append(
+                        {
+                            "role": "assistant",
+                            "content": message.content,
+                            "tool_calls": [
+                                {
+                                    "id": tc.id,
+                                    "type": "function",
+                                    "function": {
+                                        "name": tc.function.name,
+                                        "arguments": tc.function.arguments,
+                                    },
                                 }
-                            }
-                            for tc in message.tool_calls
-                        ]
-                    })
+                                for tc in message.tool_calls
+                            ],
+                        }
+                    )
 
                     # Execute each tool call
                     for tool_call in message.tool_calls:
@@ -177,10 +170,7 @@ class GrokClient:
                         func_args = json.loads(tool_call.function.arguments)
 
                         logger.info(f"Executing tool: {func_name}")
-                        tool_calls_made.append({
-                            "name": func_name,
-                            "arguments": func_args
-                        })
+                        tool_calls_made.append({"name": func_name, "arguments": func_args})
 
                         # Execute the tool
                         result = await execute_tool(func_name, func_args)
@@ -188,16 +178,17 @@ class GrokClient:
                         # Save tool result to chat history
                         result_preview = json.dumps(result)[:500]
                         self.db.save_chat_message(
-                            role="system",
-                            content=f"[Tool: {func_name}] {result_preview}"
+                            role="system", content=f"[Tool: {func_name}] {result_preview}"
                         )
 
                         # Add tool result
-                        current_messages.append({
-                            "role": "tool",
-                            "tool_call_id": tool_call.id,
-                            "content": json.dumps(result)
-                        })
+                        current_messages.append(
+                            {
+                                "role": "tool",
+                                "tool_call_id": tool_call.id,
+                                "content": json.dumps(result),
+                            }
+                        )
 
                     # Continue the loop for potential follow-up
                     continue
@@ -209,14 +200,14 @@ class GrokClient:
                 self.db.save_chat_message(
                     role="assistant",
                     content=final_content,
-                    tokens=response.usage.total_tokens if response.usage else None
+                    tokens=response.usage.total_tokens if response.usage else None,
                 )
 
                 return {
                     "content": final_content,
                     "tool_calls": tool_calls_made,
                     "iterations": iterations,
-                    "tokens_used": response.usage.total_tokens if response.usage else None
+                    "tokens_used": response.usage.total_tokens if response.usage else None,
                 }
 
             except Exception as e:
@@ -225,7 +216,7 @@ class GrokClient:
                     "content": f"Error: {str(e)}",
                     "tool_calls": tool_calls_made,
                     "iterations": iterations,
-                    "error": str(e)
+                    "error": str(e),
                 }
 
         # Max iterations reached
@@ -233,7 +224,7 @@ class GrokClient:
             "content": "Maximum iterations reached",
             "tool_calls": tool_calls_made,
             "iterations": iterations,
-            "warning": "max_iterations_reached"
+            "warning": "max_iterations_reached",
         }
 
     async def analyze_and_trade(
@@ -242,7 +233,7 @@ class GrokClient:
         market_data: str,
         recent_trades: list,
         market_status: str = "UNKNOWN",
-        trading_mode: str = "AUTO"
+        trading_mode: str = "AUTO",
     ) -> dict:
         """Run a complete trading analysis with tool calling."""
         # Build the prompt
@@ -257,7 +248,7 @@ class GrokClient:
             recent_trades=recent_trades,
             market_data=market_data,
             market_status=market_status,
-            trading_mode=trading_mode
+            trading_mode=trading_mode,
         )
 
         # Save user prompt to chat history
@@ -266,7 +257,7 @@ class GrokClient:
         # Run with tools
         messages = [
             {"role": "system", "content": TRADING_SYSTEM_PROMPT},
-            {"role": "user", "content": analysis_prompt}
+            {"role": "user", "content": analysis_prompt},
         ]
 
         result = await self.chat_with_tools(messages, temperature=0.5)
@@ -277,25 +268,23 @@ class GrokClient:
             level="INFO",
             details={
                 "iterations": result.get("iterations"),
-                "tools_used": [tc["name"] for tc in result.get("tool_calls", [])]
-            }
+                "tools_used": [tc["name"] for tc in result.get("tool_calls", [])],
+            },
         )
 
         return result
 
     def analyze_market(
-        self,
-        symbol: str,
-        price_history: list[dict],
-        current_price: float,
-        portfolio_context: str
+        self, symbol: str, price_history: list[dict], current_price: float, portfolio_context: str
     ) -> dict:
         """Analyze a stock and provide trading recommendation (legacy method)."""
-        price_data = "\n".join([
-            f"  {p['date']}: Open={p['open']:.2f}, High={p['high']:.2f}, "
-            f"Low={p['low']:.2f}, Close={p['close']:.2f}, Vol={p['volume']}"
-            for p in price_history[-10:]
-        ])
+        price_data = "\n".join(
+            [
+                f"  {p['date']}: Open={p['open']:.2f}, High={p['high']:.2f}, "
+                f"Low={p['low']:.2f}, Close={p['close']:.2f}, Vol={p['volume']}"
+                for p in price_history[-10:]
+            ]
+        )
 
         prompt = f"""Analyze the following stock data and provide a trading recommendation.
 
@@ -320,44 +309,62 @@ Provide your analysis in the following JSON format:
 
 Only respond with the JSON, no other text."""
 
-        response = self.chat([
-            {"role": "system", "content": "You are Grok, a trading analyst AI. Respond only in valid JSON."},
-            {"role": "user", "content": prompt}
-        ], temperature=0.3)
+        response = self.chat(
+            [
+                {
+                    "role": "system",
+                    "content": "You are Grok, a trading analyst AI. Respond only in valid JSON.",
+                },
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.3,
+        )
 
-        return self._parse_json_response(response, {
-            "recommendation": "HOLD",
-            "confidence": 0,
-            "reasoning": "Failed to parse analysis",
-            "risk_score": 100,
-            "target_price": None,
-            "stop_loss": None
-        })
+        return self._parse_json_response(
+            response,
+            {
+                "recommendation": "HOLD",
+                "confidence": 0,
+                "reasoning": "Failed to parse analysis",
+                "risk_score": 100,
+                "target_price": None,
+                "stop_loss": None,
+            },
+        )
 
     def decide_trade(
-        self,
-        portfolio_state: dict,
-        market_data: dict,
-        recent_trades: list[dict]
+        self, portfolio_state: dict, market_data: dict, recent_trades: list[dict]
     ) -> dict:
         """Make a trading decision (legacy method for compatibility)."""
-        recent_trades_str = "\n".join([
-            f"  - {t['timestamp']}: {t['action']} {t['quantity']} {t['symbol']} @ ${t['price']:.2f}"
-            for t in recent_trades[-5:]
-        ]) if recent_trades else "  No recent trades"
+        recent_trades_str = (
+            "\n".join(
+                [
+                    f"  - {t['timestamp']}: {t['action']} {t['quantity']} {t['symbol']} @ ${t['price']:.2f}"
+                    for t in recent_trades[-5:]
+                ]
+            )
+            if recent_trades
+            else "  No recent trades"
+        )
 
-        positions_str = "\n".join([
-            f"  - {p['symbol']}: {p['quantity']} shares, avg=${p['avg_price']:.2f}, "
-            f"current=${p['current_price']:.2f}, P&L={p['pnl']:.2f}"
-            for p in portfolio_state.get('positions', [])
-        ]) if portfolio_state.get('positions') else "  No open positions"
+        positions_str = (
+            "\n".join(
+                [
+                    f"  - {p['symbol']}: {p['quantity']} shares, avg=${p['avg_price']:.2f}, "
+                    f"current=${p['current_price']:.2f}, P&L={p['pnl']:.2f}"
+                    for p in portfolio_state.get("positions", [])
+                ]
+            )
+            if portfolio_state.get("positions")
+            else "  No open positions"
+        )
 
         prompt = f"""Make a trading decision based on the current state.
 
 PORTFOLIO STATE:
-- Cash: ${portfolio_state['cash']:,.2f}
-- Total Value: ${portfolio_state['total_value']:,.2f}
-- P&L: ${portfolio_state['pnl']:,.2f} ({portfolio_state['pnl_percent']:.2f}%)
+- Cash: ${portfolio_state["cash"]:,.2f}
+- Total Value: ${portfolio_state["total_value"]:,.2f}
+- P&L: ${portfolio_state["pnl"]:,.2f} ({portfolio_state["pnl_percent"]:.2f}%)
 
 CURRENT POSITIONS:
 {positions_str}
@@ -385,18 +392,27 @@ Respond with your decision in JSON format:
 
 Only respond with the JSON, no other text."""
 
-        response = self.chat([
-            {"role": "system", "content": "You are Grok, an autonomous trading AI. Make smart, risk-aware trading decisions. Respond only in valid JSON."},
-            {"role": "user", "content": prompt}
-        ], temperature=0.5)
+        response = self.chat(
+            [
+                {
+                    "role": "system",
+                    "content": "You are Grok, an autonomous trading AI. Make smart, risk-aware trading decisions. Respond only in valid JSON.",
+                },
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.5,
+        )
 
-        return self._parse_json_response(response, {
-            "action": "HOLD",
-            "symbol": None,
-            "quantity": None,
-            "reasoning": "Failed to parse decision - holding",
-            "risk_score": 0
-        })
+        return self._parse_json_response(
+            response,
+            {
+                "action": "HOLD",
+                "symbol": None,
+                "quantity": None,
+                "reasoning": "Failed to parse decision - holding",
+                "risk_score": 0,
+            },
+        )
 
     def _parse_json_response(self, response: str, default: dict) -> dict:
         """Parse a JSON response with fallback."""
@@ -413,7 +429,7 @@ Only respond with the JSON, no other text."""
 
 
 # Singleton
-_grok_client: Optional[GrokClient] = None
+_grok_client: GrokClient | None = None
 
 
 def get_grok_client() -> GrokClient:

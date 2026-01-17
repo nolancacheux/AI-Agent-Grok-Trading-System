@@ -2,22 +2,22 @@
 
 import json
 from datetime import datetime, timedelta
-from typing import Optional, List
-from sqlalchemy import create_engine, desc
-from sqlalchemy.orm import sessionmaker, Session
-from loguru import logger
 from pathlib import Path
+
+from loguru import logger
+from sqlalchemy import create_engine, desc
+from sqlalchemy.orm import Session, sessionmaker
 
 from src.database.models import (
     Base,
-    TradeRecord,
     ChatMessage,
-    Reflection,
-    PortfolioSnapshotRecord,
-    SystemLog,
+    Decision,
     InitialValueRecord,
+    PortfolioSnapshotRecord,
+    Reflection,
     SystemConfig,
-    Decision
+    SystemLog,
+    TradeRecord,
 )
 
 
@@ -35,9 +35,7 @@ class Database:
         Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
 
         self._engine = create_engine(
-            f"sqlite:///{self.db_path}",
-            echo=False,
-            connect_args={"check_same_thread": False}
+            f"sqlite:///{self.db_path}", echo=False, connect_args={"check_same_thread": False}
         )
         Base.metadata.create_all(self._engine)
         self._session_factory = sessionmaker(bind=self._engine)
@@ -65,7 +63,7 @@ class Database:
                 fee=trade.get("fee", 0.0),
                 reasoning=trade.get("reasoning"),
                 evaluated_risk=trade.get("evaluated_risk", 50),
-                pnl=trade.get("pnl")
+                pnl=trade.get("pnl"),
             )
             session.add(record)
             session.commit()
@@ -79,10 +77,10 @@ class Database:
         self,
         limit: int = 100,
         offset: int = 0,
-        symbol: Optional[str] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None
-    ) -> List[TradeRecord]:
+        symbol: str | None = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> list[TradeRecord]:
         """Get trade history with optional filters."""
         session = self.get_session()
         try:
@@ -99,31 +97,24 @@ class Database:
         finally:
             session.close()
 
-    def get_trades_today(self) -> List[TradeRecord]:
+    def get_trades_today(self) -> list[TradeRecord]:
         """Get trades from today."""
         today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         return self.get_trades(start_date=today_start)
 
-    def get_recent_trades(self, count: int = 5) -> List[TradeRecord]:
+    def get_recent_trades(self, count: int = 5) -> list[TradeRecord]:
         """Get most recent trades."""
         return self.get_trades(limit=count)
 
     # Chat Messages
     def save_chat_message(
-        self,
-        role: str,
-        content: str,
-        session_id: Optional[str] = None,
-        tokens: Optional[int] = None
+        self, role: str, content: str, session_id: str | None = None, tokens: int | None = None
     ) -> ChatMessage:
         """Save a chat message."""
         session = self.get_session()
         try:
             message = ChatMessage(
-                role=role,
-                content=content,
-                trading_session_id=session_id,
-                tokens_used=tokens
+                role=role, content=content, trading_session_id=session_id, tokens_used=tokens
             )
             session.add(message)
             session.commit()
@@ -132,11 +123,7 @@ class Database:
         finally:
             session.close()
 
-    def get_chat_history(
-        self,
-        limit: int = 50,
-        session_id: Optional[str] = None
-    ) -> List[ChatMessage]:
+    def get_chat_history(self, limit: int = 50, session_id: str | None = None) -> list[ChatMessage]:
         """Get chat history."""
         session = self.get_session()
         try:
@@ -147,7 +134,7 @@ class Database:
         finally:
             session.close()
 
-    def get_recent_context(self, limit: int = 10) -> List[dict]:
+    def get_recent_context(self, limit: int = 10) -> list[dict]:
         """Get recent chat messages formatted for API context."""
         messages = self.get_chat_history(limit=limit)
         return [{"role": m.role, "content": m.content} for m in reversed(messages)]
@@ -161,9 +148,9 @@ class Database:
         trades_analyzed: int = 0,
         total_pnl: float = 0.0,
         win_rate: float = 0.0,
-        lessons: Optional[str] = None,
-        adjustments: Optional[str] = None,
-        sentiment: Optional[float] = None
+        lessons: str | None = None,
+        adjustments: str | None = None,
+        sentiment: float | None = None,
     ) -> Reflection:
         """Save a reflection."""
         session = self.get_session()
@@ -177,7 +164,7 @@ class Database:
                 win_rate=win_rate,
                 lessons_learned=lessons,
                 strategy_adjustments=adjustments,
-                sentiment_score=sentiment
+                sentiment_score=sentiment,
             )
             session.add(reflection)
             session.commit()
@@ -187,22 +174,20 @@ class Database:
         finally:
             session.close()
 
-    def get_reflections(self, limit: int = 10) -> List[Reflection]:
+    def get_reflections(self, limit: int = 10) -> list[Reflection]:
         """Get recent reflections."""
         session = self.get_session()
         try:
-            return session.query(Reflection).order_by(
-                desc(Reflection.timestamp)
-            ).limit(limit).all()
+            return session.query(Reflection).order_by(desc(Reflection.timestamp)).limit(limit).all()
         finally:
             session.close()
 
-    def get_latest_reflection(self) -> Optional[Reflection]:
+    def get_latest_reflection(self) -> Reflection | None:
         """Get the most recent reflection."""
         reflections = self.get_reflections(limit=1)
         return reflections[0] if reflections else None
 
-    def get_latest_reflection_time(self) -> Optional[datetime]:
+    def get_latest_reflection_time(self) -> datetime | None:
         """Get the end time of the last reflection period."""
         reflection = self.get_latest_reflection()
         if reflection:
@@ -229,7 +214,7 @@ class Database:
         holdings_value: float,
         pnl: float = 0.0,
         pnl_percent: float = 0.0,
-        positions: Optional[list] = None
+        positions: list | None = None,
     ) -> PortfolioSnapshotRecord:
         """Save a portfolio snapshot."""
         session = self.get_session()
@@ -240,7 +225,7 @@ class Database:
                 holdings_value=holdings_value,
                 pnl=pnl,
                 pnl_percent=pnl_percent,
-                positions_json=json.dumps(positions) if positions else None
+                positions_json=json.dumps(positions) if positions else None,
             )
             session.add(snapshot)
             session.commit()
@@ -250,32 +235,37 @@ class Database:
             session.close()
 
     def get_portfolio_history(
-        self,
-        hours: int = 24,
-        limit: int = 1000
-    ) -> List[PortfolioSnapshotRecord]:
+        self, hours: int = 24, limit: int = 1000
+    ) -> list[PortfolioSnapshotRecord]:
         """Get portfolio history for the last N hours."""
         session = self.get_session()
         try:
             start_time = datetime.utcnow() - timedelta(hours=hours)
-            return session.query(PortfolioSnapshotRecord).filter(
-                PortfolioSnapshotRecord.timestamp >= start_time
-            ).order_by(PortfolioSnapshotRecord.timestamp).limit(limit).all()
+            return (
+                session.query(PortfolioSnapshotRecord)
+                .filter(PortfolioSnapshotRecord.timestamp >= start_time)
+                .order_by(PortfolioSnapshotRecord.timestamp)
+                .limit(limit)
+                .all()
+            )
         finally:
             session.close()
 
     def get_portfolio_history_range(
-        self,
-        start: datetime,
-        end: datetime
-    ) -> List[PortfolioSnapshotRecord]:
+        self, start: datetime, end: datetime
+    ) -> list[PortfolioSnapshotRecord]:
         """Get portfolio history for a date range."""
         session = self.get_session()
         try:
-            return session.query(PortfolioSnapshotRecord).filter(
-                PortfolioSnapshotRecord.timestamp >= start,
-                PortfolioSnapshotRecord.timestamp <= end
-            ).order_by(PortfolioSnapshotRecord.timestamp).all()
+            return (
+                session.query(PortfolioSnapshotRecord)
+                .filter(
+                    PortfolioSnapshotRecord.timestamp >= start,
+                    PortfolioSnapshotRecord.timestamp <= end,
+                )
+                .order_by(PortfolioSnapshotRecord.timestamp)
+                .all()
+            )
         finally:
             session.close()
 
@@ -284,8 +274,8 @@ class Database:
         self,
         message: str,
         level: str = "INFO",
-        component: Optional[str] = None,
-        details: Optional[dict] = None
+        component: str | None = None,
+        details: dict | None = None,
     ) -> SystemLog:
         """Save a system log entry."""
         session = self.get_session()
@@ -294,7 +284,7 @@ class Database:
                 level=level,
                 component=component,
                 message=message,
-                details=json.dumps(details) if details else None
+                details=json.dumps(details) if details else None,
             )
             session.add(log_entry)
             session.commit()
@@ -304,11 +294,8 @@ class Database:
             session.close()
 
     def get_logs(
-        self,
-        limit: int = 100,
-        level: Optional[str] = None,
-        component: Optional[str] = None
-    ) -> List[SystemLog]:
+        self, limit: int = 100, level: str | None = None, component: str | None = None
+    ) -> list[SystemLog]:
         """Get system logs."""
         session = self.get_session()
         try:
@@ -322,13 +309,11 @@ class Database:
             session.close()
 
     # Initial Value Tracking
-    def get_initial_value(self, account_id: Optional[str] = None) -> Optional[float]:
+    def get_initial_value(self, account_id: str | None = None) -> float | None:
         """Get the initial portfolio value."""
         session = self.get_session()
         try:
-            query = session.query(InitialValueRecord).filter(
-                InitialValueRecord.is_active == True
-            )
+            query = session.query(InitialValueRecord).filter(InitialValueRecord.is_active)
             if account_id:
                 query = query.filter(InitialValueRecord.account_id == account_id)
             record = query.order_by(desc(InitialValueRecord.timestamp)).first()
@@ -336,25 +321,17 @@ class Database:
         finally:
             session.close()
 
-    def set_initial_value(
-        self,
-        value: float,
-        account_id: Optional[str] = None
-    ) -> InitialValueRecord:
+    def set_initial_value(self, value: float, account_id: str | None = None) -> InitialValueRecord:
         """Set the initial portfolio value."""
         session = self.get_session()
         try:
             # Deactivate any existing initial values
-            session.query(InitialValueRecord).filter(
-                InitialValueRecord.is_active == True
-            ).update({"is_active": False})
+            session.query(InitialValueRecord).filter(InitialValueRecord.is_active).update(
+                {"is_active": False}
+            )
 
             # Create new record
-            record = InitialValueRecord(
-                initial_value=value,
-                account_id=account_id,
-                is_active=True
-            )
+            record = InitialValueRecord(initial_value=value, account_id=account_id, is_active=True)
             session.add(record)
             session.commit()
             session.refresh(record)
@@ -369,9 +346,7 @@ class Database:
         session = self.get_session()
         try:
             start_date = datetime.now() - timedelta(days=days)
-            trades = session.query(TradeRecord).filter(
-                TradeRecord.timestamp >= start_date
-            ).all()
+            trades = session.query(TradeRecord).filter(TradeRecord.timestamp >= start_date).all()
 
             if not trades:
                 return {
@@ -381,7 +356,7 @@ class Database:
                     "realized_pnl": 0.0,
                     "winning_trades": 0,
                     "losing_trades": 0,
-                    "win_rate": 0.0
+                    "win_rate": 0.0,
                 }
 
             total_volume = sum(t.total_value for t in trades)
@@ -402,19 +377,17 @@ class Database:
                 "realized_pnl": realized_pnl,
                 "winning_trades": winning,
                 "losing_trades": losing,
-                "win_rate": (winning / total_closed * 100) if total_closed > 0 else 0.0
+                "win_rate": (winning / total_closed * 100) if total_closed > 0 else 0.0,
             }
         finally:
             session.close()
 
     # System Configuration
-    def get_config(self, key: str, default: Optional[str] = None) -> Optional[str]:
+    def get_config(self, key: str, default: str | None = None) -> str | None:
         """Get a configuration value."""
         session = self.get_session()
         try:
-            config = session.query(SystemConfig).filter(
-                SystemConfig.key == key
-            ).first()
+            config = session.query(SystemConfig).filter(SystemConfig.key == key).first()
             return config.value if config else default
         finally:
             session.close()
@@ -423,9 +396,7 @@ class Database:
         """Set a configuration value."""
         session = self.get_session()
         try:
-            config = session.query(SystemConfig).filter(
-                SystemConfig.key == key
-            ).first()
+            config = session.query(SystemConfig).filter(SystemConfig.key == key).first()
             if config:
                 config.value = value
             else:
@@ -451,13 +422,13 @@ class Database:
         self,
         action: str,
         reasoning: str,
-        symbol: Optional[str] = None,
-        quantity: Optional[int] = None,
-        context: Optional[dict] = None,
-        risk_score: Optional[int] = None,
-        session_id: Optional[str] = None,
+        symbol: str | None = None,
+        quantity: int | None = None,
+        context: dict | None = None,
+        risk_score: int | None = None,
+        session_id: str | None = None,
         executed: bool = False,
-        trade_id: Optional[int] = None
+        trade_id: int | None = None,
     ) -> Decision:
         """Save a trading decision (including KEEP decisions)."""
         session = self.get_session()
@@ -471,7 +442,7 @@ class Database:
                 risk_score=risk_score,
                 trading_session_id=session_id,
                 executed=executed,
-                trade_id=trade_id
+                trade_id=trade_id,
             )
             session.add(decision)
             session.commit()
@@ -482,11 +453,8 @@ class Database:
             session.close()
 
     def get_decisions(
-        self,
-        limit: int = 50,
-        action: Optional[str] = None,
-        symbol: Optional[str] = None
-    ) -> List[Decision]:
+        self, limit: int = 50, action: str | None = None, symbol: str | None = None
+    ) -> list[Decision]:
         """Get decision history."""
         session = self.get_session()
         try:
@@ -499,19 +467,22 @@ class Database:
         finally:
             session.close()
 
-    def get_decisions_by_session(self, session_id: str) -> List[Decision]:
+    def get_decisions_by_session(self, session_id: str) -> list[Decision]:
         """Get all decisions for a trading session."""
         session = self.get_session()
         try:
-            return session.query(Decision).filter(
-                Decision.trading_session_id == session_id
-            ).order_by(Decision.timestamp).all()
+            return (
+                session.query(Decision)
+                .filter(Decision.trading_session_id == session_id)
+                .order_by(Decision.timestamp)
+                .all()
+            )
         finally:
             session.close()
 
 
 # Singleton instance
-_db: Optional[Database] = None
+_db: Database | None = None
 
 
 def get_db() -> Database:

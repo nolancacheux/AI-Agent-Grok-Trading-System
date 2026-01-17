@@ -250,7 +250,7 @@ function ChatHistory() {
       {messages.length === 0 ? (
         <div className="text-center py-8 text-[var(--color-text-muted)]">
           <p>No chat history yet</p>
-          <p className="text-xs mt-2 opacity-60">The AI's thinking and analysis will appear here.</p>
+          <p className="text-xs mt-2 opacity-60">The AI&apos;s thinking and analysis will appear here.</p>
         </div>
       ) : (
         messages.map((msg) => (

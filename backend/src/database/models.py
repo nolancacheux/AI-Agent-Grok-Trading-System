@@ -1,10 +1,10 @@
 """SQLAlchemy models for database persistence."""
 
-from datetime import datetime
-from typing import Optional
-from sqlalchemy import Column, Integer, String, Float, DateTime, Text, Boolean, Enum as SQLEnum
-from sqlalchemy.orm import declarative_base
 import enum
+from datetime import datetime
+
+from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String, Text
+from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
 
@@ -17,6 +17,7 @@ class TradeActionEnum(str, enum.Enum):
 
 class TradeRecord(Base):
     """Persisted trade records."""
+
     __tablename__ = "trades"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -45,12 +46,13 @@ class TradeRecord(Base):
             "fee": self.fee,
             "reasoning": self.reasoning,
             "evaluated_risk": self.evaluated_risk,
-            "pnl": self.pnl
+            "pnl": self.pnl,
         }
 
 
 class ChatMessage(Base):
     """Chat history with Grok."""
+
     __tablename__ = "chat_messages"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -67,12 +69,13 @@ class ChatMessage(Base):
             "role": self.role,
             "content": self.content,
             "trading_session_id": self.trading_session_id,
-            "tokens_used": self.tokens_used
+            "tokens_used": self.tokens_used,
         }
 
 
 class Reflection(Base):
     """Agent self-reflections and critique."""
+
     __tablename__ = "reflections"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -99,12 +102,13 @@ class Reflection(Base):
             "content": self.content,
             "lessons_learned": self.lessons_learned,
             "strategy_adjustments": self.strategy_adjustments,
-            "sentiment_score": self.sentiment_score
+            "sentiment_score": self.sentiment_score,
         }
 
 
 class PortfolioSnapshotRecord(Base):
     """Historical portfolio snapshots."""
+
     __tablename__ = "portfolio_snapshots"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -125,12 +129,13 @@ class PortfolioSnapshotRecord(Base):
             "holdings_value": self.holdings_value,
             "pnl": self.pnl,
             "pnl_percent": self.pnl_percent,
-            "positions_json": self.positions_json
+            "positions_json": self.positions_json,
         }
 
 
 class SystemLog(Base):
     """System activity logs."""
+
     __tablename__ = "system_logs"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -147,12 +152,13 @@ class SystemLog(Base):
             "level": self.level,
             "component": self.component,
             "message": self.message,
-            "details": self.details
+            "details": self.details,
         }
 
 
 class InitialValueRecord(Base):
     """Store the initial portfolio value for accurate P&L tracking."""
+
     __tablename__ = "initial_values"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -167,12 +173,13 @@ class InitialValueRecord(Base):
             "timestamp": self.timestamp.isoformat() if self.timestamp else None,
             "initial_value": self.initial_value,
             "account_id": self.account_id,
-            "is_active": self.is_active
+            "is_active": self.is_active,
         }
 
 
 class SystemConfig(Base):
     """System configuration storage (scheduler mode, settings, etc.)."""
+
     __tablename__ = "system_config"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -185,7 +192,7 @@ class SystemConfig(Base):
             "id": self.id,
             "key": self.key,
             "value": self.value,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
 
 
@@ -198,6 +205,7 @@ class DecisionActionEnum(str, enum.Enum):
 
 class Decision(Base):
     """All trading decisions made by Grok (including KEEP decisions)."""
+
     __tablename__ = "decisions"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -224,5 +232,5 @@ class Decision(Base):
             "risk_score": self.risk_score,
             "trading_session_id": self.trading_session_id,
             "executed": self.executed,
-            "trade_id": self.trade_id
+            "trade_id": self.trade_id,
         }

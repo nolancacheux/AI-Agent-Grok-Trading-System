@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
+
 from src.broker.ibkr_client import get_ibkr_client
-from src.models import AgentState, AgentStatus, Position
+from src.models import AgentState, AgentStatus
 
 router = APIRouter()
 
@@ -24,10 +25,10 @@ async def get_portfolio():
             "cash": cash,
             "total_value": total_value,
             "holdings_value": holdings_value,
-            "positions": [p.model_dump() for p in positions]
+            "positions": [p.model_dump() for p in positions],
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/portfolio/positions")
@@ -42,7 +43,7 @@ async def get_positions():
         positions = await ibkr.get_positions()
         return {"positions": [p.model_dump() for p in positions]}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/portfolio/cash")
@@ -57,7 +58,7 @@ async def get_cash():
         cash = await ibkr.get_cash_balance()
         return {"cash": cash}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/agent/state")
@@ -82,7 +83,7 @@ async def get_agent_state():
                 total_value=total_value,
                 pnl=pnl,
                 pnl_percent=pnl_percent,
-                positions=positions
+                positions=positions,
             )
         else:
             state = AgentState(
@@ -92,10 +93,10 @@ async def get_agent_state():
                 total_value=0,
                 pnl=0,
                 pnl_percent=0,
-                positions=[]
+                positions=[],
             )
 
         return state.model_dump()
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

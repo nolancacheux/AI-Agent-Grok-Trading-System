@@ -1,14 +1,15 @@
 import asyncio
 import math
 from concurrent.futures import ThreadPoolExecutor
-from typing import Optional
 from datetime import datetime, timedelta
-from loguru import logger
-from ib_insync import IB, Stock, MarketOrder, LimitOrder, Contract, Trade as IBTrade
+
 import nest_asyncio
+from ib_insync import IB, Contract, LimitOrder, MarketOrder, Stock
+from ib_insync import Trade as IBTrade
+from loguru import logger
 
 from src.config import get_settings
-from src.models import Position, TradeOrder, TradeResult, TradeAction, OrderType
+from src.models import OrderType, Position, TradeAction, TradeOrder, TradeResult
 
 # Enable nested event loops for ib_insync compatibility
 nest_asyncio.apply()
@@ -38,6 +39,7 @@ class IBKRClient:
         """Lazy load Yahoo client to avoid circular imports."""
         if self._yahoo is None:
             from src.market_data.yahoo_finance import get_yahoo_client
+
             self._yahoo = get_yahoo_client()
         return self._yahoo
 
@@ -75,7 +77,7 @@ class IBKRClient:
                 self.settings.ibkr_port,
                 clientId=self.settings.ibkr_client_id,
                 readonly=False,
-                timeout=10
+                timeout=10,
             )
             return True
         except Exception as e:
@@ -200,12 +202,14 @@ class IBKRClient:
                     except Exception as e:
                         logger.warning(f"Yahoo price also failed for {symbol}: {e}")
 
-                positions.append({
-                    "symbol": symbol,
-                    "quantity": int(pos.position),
-                    "avg_price": avg_price,
-                    "current_price": current_price
-                })
+                positions.append(
+                    {
+                        "symbol": symbol,
+                        "quantity": int(pos.position),
+                        "avg_price": avg_price,
+                        "current_price": current_price,
+                    }
+                )
 
         return positions
 
@@ -219,7 +223,7 @@ class IBKRClient:
 
         return [Position(**p) for p in pos_data]
 
-    async def _get_current_price(self, contract: Contract) -> Optional[float]:
+    async def _get_current_price(self, contract: Contract) -> float | None:
         """Get current market price for a contract with Yahoo fallback."""
         symbol = contract.symbol
 
@@ -254,7 +258,7 @@ class IBKRClient:
 
         return None
 
-    async def get_stock_price(self, symbol: str) -> Optional[float]:
+    async def get_stock_price(self, symbol: str) -> float | None:
         """Get current price for a stock symbol with Yahoo fallback."""
         contract = Stock(symbol, "SMART", "USD")
         return await self._get_current_price(contract)
@@ -294,7 +298,8 @@ class IBKRClient:
                 fill = trade.fills[-1] if trade.fills else None
                 executed_price = fill.execution.price if fill else 0.0
                 commission = sum(
-                    f.commissionReport.commission for f in trade.fills
+                    f.commissionReport.commission
+                    for f in trade.fills
                     if f.commissionReport and f.commissionReport.commission
                 )
                 summary = self._sync_get_account_summary()
@@ -307,7 +312,7 @@ class IBKRClient:
                     "executed_price": executed_price,
                     "total_value": executed_price * quantity,
                     "fee": commission,
-                    "cash_after": cash_after
+                    "cash_after": cash_after,
                 }
             else:
                 return {"success": False, "error": f"Order status: {trade.orderStatus.status}"}
@@ -324,7 +329,7 @@ class IBKRClient:
                 symbol=order.symbol,
                 action=order.action,
                 quantity=order.quantity,
-                error="Not connected to IBKR"
+                error="Not connected to IBKR",
             )
 
         loop = asyncio.get_event_loop()
@@ -340,7 +345,7 @@ class IBKRClient:
                 executed_price=result.get("executed_price", 0.0),
                 total_value=result.get("total_value", 0.0),
                 fee=result.get("fee", 0.0),
-                cash_after=result.get("cash_after", 0.0)
+                cash_after=result.get("cash_after", 0.0),
             )
         else:
             return TradeResult(
@@ -348,12 +353,12 @@ class IBKRClient:
                 symbol=order.symbol,
                 action=order.action,
                 quantity=order.quantity,
-                error=result.get("error", "Unknown error")
+                error=result.get("error", "Unknown error"),
             )
 
 
 # Singleton instance
-_ibkr_client: Optional[IBKRClient] = None
+_ibkr_client: IBKRClient | None = None
 
 
 def get_ibkr_client() -> IBKRClient:

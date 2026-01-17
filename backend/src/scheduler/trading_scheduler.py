@@ -1,9 +1,10 @@
 """Trading scheduler for autonomous trading loop."""
 
 import asyncio
+from collections.abc import Callable
 from datetime import datetime, time
-from typing import Optional, Callable, List
 from zoneinfo import ZoneInfo
+
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
@@ -11,7 +12,6 @@ from loguru import logger
 
 from src.config import get_settings
 from src.database import get_db
-
 
 # Market hours (Eastern Time)
 MARKET_OPEN = time(9, 30)
@@ -25,6 +25,7 @@ ET = ZoneInfo("America/New_York")
 
 class MarketStatus:
     """Market status enumeration."""
+
     CLOSED = "CLOSED"
     PRE_MARKET = "PRE_MARKET"
     OPEN = "OPEN"
@@ -74,9 +75,9 @@ class TradingScheduler:
         self.settings = get_settings()
         self.db = get_db()
         self.scheduler = AsyncIOScheduler(timezone=ET)
-        self._trading_callback: Optional[Callable] = None
-        self._snapshot_callback: Optional[Callable] = None
-        self._reflection_callback: Optional[Callable] = None
+        self._trading_callback: Callable | None = None
+        self._snapshot_callback: Callable | None = None
+        self._reflection_callback: Callable | None = None
         self._is_running = False
         self._trade_count_since_reflection = 0
         # Load mode from database (defaults to AUTO)
@@ -100,9 +101,7 @@ class TradingScheduler:
             # Persist to database
             self.db.set_scheduler_mode(self._mode)
             self.db.log(
-                message=f"Trading mode set to {self._mode}",
-                component="scheduler",
-                level="INFO"
+                message=f"Trading mode set to {self._mode}", component="scheduler", level="INFO"
             )
             logger.info(f"Trading mode: {self._mode}")
 
@@ -122,7 +121,9 @@ class TradingScheduler:
         """Sync trade count from database on startup."""
         try:
             self._trade_count_since_reflection = self.db.count_trades_since_last_reflection()
-            logger.info(f"Trade count synced: {self._trade_count_since_reflection} trades since last reflection")
+            logger.info(
+                f"Trade count synced: {self._trade_count_since_reflection} trades since last reflection"
+            )
         except Exception as e:
             logger.warning(f"Could not sync trade count: {e}")
             self._trade_count_since_reflection = 0
@@ -139,7 +140,7 @@ class TradingScheduler:
             self.db.log(
                 message=f"Trade threshold reached ({self._trade_count_since_reflection} trades) - triggering reflection",
                 component="scheduler",
-                level="INFO"
+                level="INFO",
             )
             self._trigger_trade_count_reflection()
 
@@ -163,7 +164,7 @@ class TradingScheduler:
             self.db.log(
                 message=f"Trading check - Market: {market_status}, Mode: {self._mode}",
                 component="scheduler",
-                level="DEBUG"
+                level="DEBUG",
             )
 
             # Only trade in AUTO mode during market hours
@@ -180,7 +181,7 @@ class TradingScheduler:
                 self.db.log(
                     message="Starting scheduled analysis and trade",
                     component="scheduler",
-                    level="INFO"
+                    level="INFO",
                 )
                 await self._trading_callback()
             else:
@@ -189,9 +190,7 @@ class TradingScheduler:
         except Exception as e:
             logger.error(f"Trading loop error: {e}")
             self.db.log(
-                message=f"Trading loop error: {str(e)}",
-                component="scheduler",
-                level="ERROR"
+                message=f"Trading loop error: {str(e)}", component="scheduler", level="ERROR"
             )
 
     async def _execute_snapshot(self):
@@ -225,7 +224,7 @@ class TradingScheduler:
             IntervalTrigger(minutes=interval_minutes),
             id="trading_loop",
             name="Trading Analysis Loop",
-            replace_existing=True
+            replace_existing=True,
         )
 
         # Portfolio snapshot - every 1 minute for real-time updates
@@ -234,7 +233,7 @@ class TradingScheduler:
             IntervalTrigger(minutes=1),
             id="portfolio_snapshot",
             name="Portfolio Snapshot",
-            replace_existing=True
+            replace_existing=True,
         )
 
         # Daily reflection - at market close (4:05 PM ET)
@@ -243,7 +242,7 @@ class TradingScheduler:
             CronTrigger(hour=16, minute=5, timezone=ET),
             id="daily_reflection",
             name="Daily Trading Reflection",
-            replace_existing=True
+            replace_existing=True,
         )
 
         # Weekly reflection - Friday at 4:30 PM ET
@@ -252,7 +251,7 @@ class TradingScheduler:
             CronTrigger(day_of_week="fri", hour=16, minute=30, timezone=ET),
             id="weekly_reflection",
             name="Weekly Trading Reflection",
-            replace_existing=True
+            replace_existing=True,
         )
 
         self.scheduler.start()
@@ -261,7 +260,7 @@ class TradingScheduler:
         self.db.log(
             message=f"Scheduler started - trading interval: {interval_minutes} minutes",
             component="scheduler",
-            level="INFO"
+            level="INFO",
         )
         logger.info(f"Scheduler started - interval: {interval_minutes}m")
 
@@ -273,23 +272,21 @@ class TradingScheduler:
         self.scheduler.shutdown(wait=False)
         self._is_running = False
 
-        self.db.log(
-            message="Scheduler stopped",
-            component="scheduler",
-            level="INFO"
-        )
+        self.db.log(message="Scheduler stopped", component="scheduler", level="INFO")
         logger.info("Scheduler stopped")
 
-    def get_next_run_times(self) -> List[dict]:
+    def get_next_run_times(self) -> list[dict]:
         """Get next scheduled run times for all jobs."""
         jobs = []
         for job in self.scheduler.get_jobs():
             next_run = job.next_run_time
-            jobs.append({
-                "id": job.id,
-                "name": job.name,
-                "next_run": next_run.isoformat() if next_run else None
-            })
+            jobs.append(
+                {
+                    "id": job.id,
+                    "name": job.name,
+                    "next_run": next_run.isoformat() if next_run else None,
+                }
+            )
         return jobs
 
     def trigger_now(self, job_id: str = "trading_loop"):
@@ -311,12 +308,12 @@ class TradingScheduler:
             "next_jobs": self.get_next_run_times(),
             "trading_interval_minutes": self.settings.trading_interval_minutes,
             "trade_count_since_reflection": self._trade_count_since_reflection,
-            "reflection_trades_threshold": self.settings.reflection_trades_threshold
+            "reflection_trades_threshold": self.settings.reflection_trades_threshold,
         }
 
 
 # Singleton instance
-_scheduler: Optional[TradingScheduler] = None
+_scheduler: TradingScheduler | None = None
 
 
 def get_scheduler() -> TradingScheduler:
