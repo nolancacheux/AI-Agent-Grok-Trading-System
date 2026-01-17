@@ -6,17 +6,50 @@ Autonomous AI-powered trading system using xAI's Grok model for market analysis 
 
 ## Features
 
-- **AI-Powered Analysis**: Grok analyzes market conditions and makes trading decisions
+- **AI-Powered Analysis**: Grok model analyzes market conditions and makes trading decisions
 - **Real-time Dashboard**: Monitor portfolio value, positions, and P&L
 - **Interactive Brokers Integration**: Execute trades directly through IBKR
 - **Automated Trading Loop**: Configurable intervals with manual/auto modes
-- **Self-Reflection**: AI reviews past trades and adjusts strategy
+- **Self-Reflection System**: AI reviews past trades and adjusts strategy
+
+## Screenshots
+
+### Dashboard
+![Dashboard](images/dashboard.png)
+
+### Positions & Auto-Reflection
+![Positions](images/positions.png)
+
+### System Status
+![System Status](images/system-status.png)
 
 ## Tech Stack
 
-**Frontend**: Next.js 14, TypeScript, Tailwind CSS, Recharts, Zustand
+### Frontend
+| Technology | Purpose |
+|------------|---------|
+| Next.js 14 | React framework with App Router |
+| TypeScript | Type-safe development |
+| Tailwind CSS | Utility-first styling |
+| Recharts | Interactive charts |
+| Zustand | State management |
+| React Query | Server state & caching |
 
-**Backend**: FastAPI, Python 3.11+, ib_insync, xAI Grok API
+### Backend
+| Technology | Purpose |
+|------------|---------|
+| FastAPI | Async Python API |
+| ib_insync | Interactive Brokers SDK |
+| xAI Grok | AI analysis engine |
+| Pydantic | Data validation |
+| SQLite | Local persistence |
+| APScheduler | Automated trading loop |
+
+### Infrastructure
+| Technology | Purpose |
+|------------|---------|
+| Docker | Containerization |
+| Caddy | Reverse proxy with auto-SSL |
 
 ## Quick Start
 
@@ -30,8 +63,8 @@ Autonomous AI-powered trading system using xAI's Grok model for market analysis 
 ### Installation
 
 ```bash
-git clone https://github.com/nolancacheux/grok_trading.git
-cd grok_trading
+git clone https://github.com/nolancacheux/AI-Agent-Grok-Trading-System.git
+cd AI-Agent-Grok-Trading-System
 
 # Backend
 cd backend
@@ -62,11 +95,13 @@ IBKR_ACCOUNT=your_account_id
 ### Run
 
 ```bash
-# Backend
-cd backend && python -m uvicorn src.api.main:app --reload --port 8000
+# Terminal 1: Backend
+cd backend
+python -m uvicorn src.api.main:app --reload --port 8000
 
-# Frontend
-cd frontend && npm run dev
+# Terminal 2: Frontend
+cd frontend
+npm run dev
 ```
 
 Open http://localhost:3000
@@ -75,21 +110,31 @@ Open http://localhost:3000
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/health` | GET | Service health |
-| `/api/agent/status` | GET | Agent state |
-| `/api/agent/analyze` | POST | Trigger analysis |
-| `/api/portfolio` | GET | Portfolio overview |
-| `/api/trade` | POST | Execute trade |
+| `/health` | GET | Service health + IBKR connection |
+| `/api/agent/status` | GET | Agent state, positions, P&L |
+| `/api/agent/trades` | GET | Trade history |
+| `/api/agent/decisions` | GET | All decisions (BUY/SELL/KEEP) |
+| `/api/agent/analyze` | POST | Trigger AI analysis |
+| `/api/portfolio` | GET | Full portfolio state |
+| `/api/trade` | POST | Execute trade order |
 
 ## Deployment
 
 ```bash
+# Docker
 docker compose -f docker-compose.prod.yml up -d
 ```
 
+## Security
+
+- Never commit `.env` files
+- Use paper trading for testing
+- Enable 2FA on Interactive Brokers
+- Rotate API keys regularly
+
 ## License
 
-MIT
+MIT License
 
 ## Disclaimer
 
