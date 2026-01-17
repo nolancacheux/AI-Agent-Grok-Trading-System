@@ -14,9 +14,6 @@ Autonomous AI-powered trading system using xAI's Grok model for market analysis 
 
 ## Screenshots
 
-### Dashboard
-![Dashboard](images/dashboard.png)
-
 ### Positions & Auto-Reflection
 ![Positions](images/positions.png)
 
