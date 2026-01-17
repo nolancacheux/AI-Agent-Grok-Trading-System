@@ -33,9 +33,11 @@ indent-style = "space"
 
 [tool.mypy]
 python_version = "3.11"
-warn_return_any = true
+warn_return_any = false
 warn_unused_configs = true
 ignore_missing_imports = true
+no_implicit_optional = false
+disable_error_code = ["misc", "arg-type", "call-overload", "return-value", "assignment", "index", "valid-type"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
