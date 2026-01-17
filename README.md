@@ -6,35 +6,17 @@ Autonomous AI-powered trading system using xAI's Grok model for market analysis 
 
 ## Features
 
-- **AI-Powered Analysis**: Grok model analyzes market conditions and makes trading decisions
+- **AI-Powered Analysis**: Grok analyzes market conditions and makes trading decisions
 - **Real-time Dashboard**: Monitor portfolio value, positions, and P&L
 - **Interactive Brokers Integration**: Execute trades directly through IBKR
 - **Automated Trading Loop**: Configurable intervals with manual/auto modes
-- **Self-Reflection System**: AI reviews past trades and adjusts strategy
-
-## Screenshots
-
-<details>
-<summary>View Screenshots</summary>
-
-### Dashboard
-![Dashboard](images/dashboard.png)
-
-### Positions & Auto-Reflection
-![Positions](images/positions.png)
-
-### System Status
-![System Status](images/system-status.png)
-
-</details>
+- **Self-Reflection**: AI reviews past trades and adjusts strategy
 
 ## Tech Stack
 
 **Frontend**: Next.js 14, TypeScript, Tailwind CSS, Recharts, Zustand
 
 **Backend**: FastAPI, Python 3.11+, ib_insync, xAI Grok API
-
-**Infrastructure**: Docker, Caddy (reverse proxy)
 
 ## Quick Start
 
@@ -80,13 +62,11 @@ IBKR_ACCOUNT=your_account_id
 ### Run
 
 ```bash
-# Terminal 1: Backend
-cd backend
-python -m uvicorn src.api.main:app --reload --port 8000
+# Backend
+cd backend && python -m uvicorn src.api.main:app --reload --port 8000
 
-# Terminal 2: Frontend
-cd frontend
-npm run dev
+# Frontend
+cd frontend && npm run dev
 ```
 
 Open http://localhost:3000
@@ -95,29 +75,21 @@ Open http://localhost:3000
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/health` | GET | Service health status |
-| `/api/agent/status` | GET | Agent state and positions |
-| `/api/agent/analyze` | POST | Trigger AI analysis |
+| `/health` | GET | Service health |
+| `/api/agent/status` | GET | Agent state |
+| `/api/agent/analyze` | POST | Trigger analysis |
 | `/api/portfolio` | GET | Portfolio overview |
 | `/api/trade` | POST | Execute trade |
 
 ## Deployment
 
 ```bash
-# Docker
 docker compose -f docker-compose.prod.yml up -d
 ```
 
-## Security
-
-- Never commit `.env` files
-- Use paper trading for testing
-- Enable 2FA on Interactive Brokers
-- Rotate API keys regularly
-
 ## License
 
-MIT License
+MIT
 
 ## Disclaimer
 
