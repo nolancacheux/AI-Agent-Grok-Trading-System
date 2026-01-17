@@ -214,5 +214,7 @@ prompt
 # Claude Code
 .claude/
 claude/
+Claude.md
 CLAUDE.md
+**/Claude.md
 **/CLAUDE.md
